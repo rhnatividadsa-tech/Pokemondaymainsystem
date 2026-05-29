@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Player } from '../store/gameStore';
-import { STORE_ITEMS } from '../../../../shared/data/pokemonData';
+import { STORE_ITEMS } from '../../../../../shared/data/pokemonData';
 import { CoinDisplay, PokeHeader, PokeCard } from './PokeShared';
 
 interface Props {

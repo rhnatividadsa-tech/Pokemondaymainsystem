@@ -17,7 +17,7 @@ import {
   STORE_ITEMS,
   getSpriteUrl,
   getTypeColor,
-} from '../shared/data/pokemonData';
+} from '../../../shared/data/pokemonData';
 
 type Screen = 'home' | 'pokedex' | 'starter' | 'bag';
 

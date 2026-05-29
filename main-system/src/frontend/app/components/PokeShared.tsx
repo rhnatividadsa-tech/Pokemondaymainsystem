@@ -1,4 +1,4 @@
-import { getSpriteUrl, getTypeColor, REGION_COLORS } from '../../../../shared/data/pokemonData';
+import { getSpriteUrl, getTypeColor, REGION_COLORS } from '../../../../../shared/data/pokemonData';
 import pokeballImg from '../../imports/image-2.png';
 
 export function PokemonSprite({ spriteId, name, size = 80 }: { spriteId: number; name: string; size?: number }) {

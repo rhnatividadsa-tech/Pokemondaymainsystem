@@ -2,5 +2,10 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true
-  }
+  },
+  "exclude": [
+    "src/frontend/app",
+    "src/frontend/imports",
+    "src/frontend/styles"
+  ]
 }

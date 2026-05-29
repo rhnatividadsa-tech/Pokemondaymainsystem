@@ -2,7 +2,7 @@
   "name": "@pokejourney/main-system",
   "private": true,
   "version": "0.1.0",
-  "main": "node_modules/expo/AppEntry.js",
+  "main": "src/frontend/index.ts",
   "scripts": {
     "dev": "expo start",
     "android": "expo start --android",

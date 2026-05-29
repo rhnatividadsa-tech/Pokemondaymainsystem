@@ -1,5 +1,5 @@
 import { Player, OwnedPokemon } from '../store/gameStore';
-import { getPokemonById } from '../../../../shared/data/pokemonData';
+import { getPokemonById } from '../../../../../shared/data/pokemonData';
 import { PokemonSprite, TypeBadge, CoinDisplay, LevelBadge, PokeCard, PokeBall } from './PokeShared';
 
 type Page = 'dashboard' | 'starter' | 'pokedex' | 'store' | 'inventory' | 'evolution' | 'history' | 'facilitator' | 'subsystem';

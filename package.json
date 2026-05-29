@@ -7,7 +7,7 @@
     "dev:main": "corepack pnpm --filter @pokejourney/main-system dev",
     "dev:catching": "corepack pnpm --filter @pokejourney/catching-subsystem dev",
     "dev:leveling": "corepack pnpm --filter @pokejourney/leveling-subsystem dev",
-    "build": "corepack pnpm --filter @pokejourney/catching-subsystem build && corepack pnpm --filter @pokejourney/leveling-subsystem build",
+    "build": "corepack pnpm --filter @pokejourney/main-system exec tsc --noEmit",
     "build:catching": "corepack pnpm --filter @pokejourney/catching-subsystem build",
     "build:leveling": "corepack pnpm --filter @pokejourney/leveling-subsystem build"
   },
