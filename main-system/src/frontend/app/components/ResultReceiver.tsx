@@ -68,7 +68,7 @@ export function ResultReceiver({ onProcess, onBack }: Props) {
   function handleProcess() {
     if (!parsed) return;
     const result = onProcess(parsed);
-    setMessage(result);
+    setMessage({ text: result.message, ok: result.success });
     if (result.success) {
       setJsonInput('');
       setParsed(null);
