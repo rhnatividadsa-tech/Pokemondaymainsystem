@@ -48,7 +48,7 @@ export function StartPage({ onStart }: Props) {
       <div className="absolute top-2/3 right-1/4 text-3xl opacity-20 float-reverse" style={{ animationDelay: '1.2s' }}>✨</div>
 
       {/* Logo area */}
-      <div className="flex flex-col items-center gap-4 fade-in relative z-10">
+      <div className="flex flex-col items-center gap-4  relative z-10">
         <img
           src={pokemonLogo}
           alt="Pokemon"
@@ -60,17 +60,17 @@ export function StartPage({ onStart }: Props) {
         </div>
         <div className="text-center">
           <h1
-            className="text-white tracking-widest drop-shadow-lg glow-pulse"
+            className="text-white tracking-widest drop-shadow-lg glow-"
             style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '0.1em' }}
           >
             PokéJourney
           </h1>
-          <p className="text-white/80 text-sm mt-1 fade-in" style={{ animationDelay: '0.3s' }}>Begin your Pokémon adventure!</p>
+          <p className="text-white/80 text-sm mt-1 " style={{ animationDelay: '0.3s' }}>Begin your Pokémon adventure!</p>
         </div>
       </div>
 
       {/* Input card */}
-      <div className="w-full max-w-sm bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6 flex flex-col gap-5 slide-in-right relative z-10" style={{ animationDelay: '0.2s' }}>
+      <div className="w-full max-w-sm bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-6 flex flex-col gap-5  relative z-10" style={{ animationDelay: '0.2s' }}>
         <div>
           <p className="text-gray-500 text-sm mb-1">Welcome, Trainer!</p>
           <h2 className="text-gray-800" style={{ fontSize: '1.25rem', fontWeight: 700 }}>
@@ -103,7 +103,7 @@ export function StartPage({ onStart }: Props) {
         <button
           onClick={handleStart}
           disabled={isTransitioning}
-          className="w-full py-3.5 rounded-xl font-bold text-white transition-all active:scale-95"
+          className="w-full py-3.5 rounded-xl font-bold text-white  "
           style={{
             background: isTransitioning
               ? '#94A3B8'

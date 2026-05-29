@@ -1,4 +1,4 @@
-import { Player, OwnedPokemon } from '../store/gameStoreSupabase';
+import { Player, OwnedPokemon } from '../store/gameStore';
 import { getPokemonById } from '../data/pokemonData';
 import { PokemonSprite, TypeBadge, CoinDisplay, LevelBadge, PokeCard, PokeBall } from './PokeShared';
 
@@ -30,7 +30,7 @@ export function Dashboard({ player, ownedPokemon, onNavigate, onLogout }: Props)
   return (
     <div className="flex flex-col gap-4 p-4 pb-6">
       {/* Player Card */}
-      <PokeCard className="overflow-hidden fade-in">
+      <PokeCard className="overflow-hidden ">
         <div
           className="px-4 py-3 flex items-center justify-between"
           style={{ background: 'linear-gradient(135deg, #CC0000 0%, #FF4444 100%)' }}
@@ -62,7 +62,7 @@ export function Dashboard({ player, ownedPokemon, onNavigate, onLogout }: Props)
 
       {/* Starter card */}
       {starter && starterOwned ? (
-        <PokeCard className="p-4 slide-in-left" style={{ animationDelay: '0.1s' }}>
+        <PokeCard className="p-4 " style={{ animationDelay: '0.1s' }}>
           <p className="text-xs text-gray-500 mb-2 font-semibold uppercase tracking-wide">Your Starter</p>
           <div className="flex items-center gap-4">
             <div
@@ -94,14 +94,14 @@ export function Dashboard({ player, ownedPokemon, onNavigate, onLogout }: Props)
       )}
 
       {/* Navigation grid */}
-      <div className="slide-in-right" style={{ animationDelay: '0.2s' }}>
+      <div className="" style={{ animationDelay: '0.2s' }}>
         <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">Features</p>
         <div className="grid grid-cols-4 gap-2">
           {navItems.map((item, index) => (
             <button
               key={item.page}
               onClick={() => onNavigate(item.page)}
-              className="flex flex-col items-center gap-1.5 py-3 px-1 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md active:scale-95 transition-all fade-in"
+              className="flex flex-col items-center gap-1.5 py-3 px-1 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md   "
               style={{ animationDelay: `${0.3 + index * 0.05}s` }}
             >
               <span className="text-2xl">{item.icon}</span>
@@ -113,7 +113,7 @@ export function Dashboard({ player, ownedPokemon, onNavigate, onLogout }: Props)
 
       {/* Recent Pokémon */}
       {ownedPokemon.length > 0 && (
-        <div className="slide-in-left" style={{ animationDelay: '0.7s' }}>
+        <div className="" style={{ animationDelay: '0.7s' }}>
           <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">Recent Pokémon</p>
           <PokeCard className="p-3">
             <div className="flex gap-2 overflow-x-auto pb-1">
@@ -121,7 +121,7 @@ export function Dashboard({ player, ownedPokemon, onNavigate, onLogout }: Props)
                 const pd = getPokemonById(owned.pokemonDataId);
                 if (!pd) return null;
                 return (
-                  <div key={owned.id} className="flex flex-col items-center gap-1 min-w-[60px] fade-in" style={{ animationDelay: `${0.8 + index * 0.1}s` }}>
+                  <div key={owned.id} className="flex flex-col items-center gap-1 min-w-[60px] " style={{ animationDelay: `${0.8 + index * 0.1}s` }}>
                     <div className="float" style={{ animationDelay: `${index * 0.2}s` }}>
                       <PokemonSprite spriteId={pd.spriteId} name={pd.name} size={52} />
                     </div>

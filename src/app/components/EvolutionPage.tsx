@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { OwnedPokemon, InventoryItem } from '../store/gameStoreSupabase';
+import { OwnedPokemon, InventoryItem } from '../store/gameStore';
 import { getPokemonById, getTypeColor } from '../data/pokemonData';
 import { PokemonSprite, TypeBadge, LevelBadge, PokeHeader, PokeCard, EmptyState } from './PokeShared';
 
 interface Props {
   ownedPokemon: OwnedPokemon[];
   inventory: InventoryItem[];
-  onEvolve: (ownedId: string, newPokemonDataId: string, newName: string, stoneName: string) => Promise<boolean>;
+  onEvolve: (ownedId: string, newPokemonDataId: string, newName: string, stoneName: string) => boolean;
   onBack: () => void;
 }
 
@@ -32,7 +32,7 @@ export function EvolutionPage({ ownedPokemon, inventory, onEvolve, onBack }: Pro
     return owned.level < reqLevel;
   });
 
-  async function tryEvolve(owned: OwnedPokemon) {
+  function tryEvolve(owned: OwnedPokemon) {
     const pd = getPokemonById(owned.pokemonDataId);
     if (!pd || !pd.evolvesTo || !pd.requiredStone) return;
     const nextPd = getPokemonById(pd.evolvesTo);
@@ -46,7 +46,7 @@ export function EvolutionPage({ ownedPokemon, inventory, onEvolve, onBack }: Pro
     }
 
     setEvolving(owned.id);
-    const success = await onEvolve(owned.id, pd.evolvesTo, nextPd.name, pd.requiredStone!);
+    const success = onEvolve(owned.id, pd.evolvesTo, nextPd.name, pd.requiredStone!);
     if (success) {
       setMessage({ text: `${pd.name} evolved into ${nextPd.name}! ✨`, ok: true });
     } else {
@@ -111,7 +111,7 @@ export function EvolutionPage({ ownedPokemon, inventory, onEvolve, onBack }: Pro
                 const isEvolving = evolving === owned.id;
 
                 return (
-                  <PokeCard key={owned.id} className="p-4 slide-in-right" style={{ animationDelay: `${index * 0.1}s` }}>
+                  <PokeCard key={owned.id} className="p-4 " style={{ animationDelay: `${index * 0.1}s` }}>
                     <div className="flex items-center gap-3 mb-3">
                       <div className="rounded-xl p-2 float" style={{ background: typeColor.bg, border: `2px solid ${typeColor.border}`, animationDelay: `${index * 0.2}s` }}>
                         <PokemonSprite spriteId={pd.spriteId} name={pd.name} size={60} />
@@ -125,13 +125,13 @@ export function EvolutionPage({ ownedPokemon, inventory, onEvolve, onBack }: Pro
                       </div>
                       {req.nextPd && (
                         <>
-                          <div className="flex flex-col items-center text-gray-400 pulse">
+                          <div className="flex flex-col items-center text-gray-400 ">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <path d="M9 18l6-6-6-6"/>
                             </svg>
                             <span className="text-xs">evolves</span>
                           </div>
-                          <div className="rounded-xl p-2 float-reverse glow-pulse" style={{ background: '#F0FFF4', border: '2px solid #C6F6D5', animationDelay: `${index * 0.2 + 0.5}s` }}>
+                          <div className="rounded-xl p-2 float-reverse glow-" style={{ background: '#F0FFF4', border: '2px solid #C6F6D5', animationDelay: `${index * 0.2 + 0.5}s` }}>
                             <PokemonSprite spriteId={req.nextPd.spriteId} name={req.nextPd.name} size={60} />
                           </div>
                         </>
@@ -148,7 +148,7 @@ export function EvolutionPage({ ownedPokemon, inventory, onEvolve, onBack }: Pro
                       <button
                         onClick={() => tryEvolve(owned)}
                         disabled={isEvolving}
-                        className="w-full py-3 rounded-xl font-bold text-white text-sm active:scale-95 transition-all"
+                        className="w-full py-3 rounded-xl font-bold text-white text-sm  "
                         style={{ background: 'linear-gradient(135deg, #805AD5, #9F7AEA)' }}
                       >
                         {isEvolving ? 'Evolving...' : `✨ Evolve with ${req.stone}`}

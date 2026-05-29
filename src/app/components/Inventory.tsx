@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { InventoryItem, OwnedPokemon } from '../store/gameStoreSupabase';
+import { InventoryItem, OwnedPokemon } from '../store/gameStore';
 import { getPokemonById } from '../data/pokemonData';
 import { PokemonSprite, LevelBadge, TypeBadge, PokeHeader, PokeCard, EmptyState } from './PokeShared';
 
@@ -7,7 +7,7 @@ interface Props {
   items: InventoryItem[];
   ownedPokemon: OwnedPokemon[];
   playerName: string;
-  onUseRareCandy: (ownedId: string, pokemonName: string) => Promise<boolean>;
+  onUseRareCandy: (ownedId: string, pokemonName: string) => boolean;
   onBack: () => void;
 }
 
@@ -25,10 +25,10 @@ export function Inventory({ items, ownedPokemon, playerName, onUseRareCandy, onB
 
   const rareCandyCount = items.find(i => i.itemName === 'Rare Candy')?.quantity ?? 0;
 
-  async function handleUseRareCandy(owned: OwnedPokemon) {
+  function handleUseRareCandy(owned: OwnedPokemon) {
     const pd = getPokemonById(owned.pokemonDataId);
     if (!pd) return;
-    const success = await onUseRareCandy(owned.id, pd.name);
+    const success = onUseRareCandy(owned.id, pd.name);
     if (success) {
       setMessage({ text: `${pd.name} gained +5 levels!`, ok: true });
     } else {
@@ -55,7 +55,7 @@ export function Inventory({ items, ownedPokemon, playerName, onUseRareCandy, onB
                   <button
                     key={owned.id}
                     onClick={() => handleUseRareCandy(owned)}
-                    className="w-full bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 hover:border-yellow-300 active:scale-95 transition-all text-left shadow-sm"
+                    className="w-full bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 hover:border-yellow-300   text-left shadow-sm"
                   >
                     <PokemonSprite spriteId={pd.spriteId} name={pd.name} size={52} />
                     <div className="flex-1">
@@ -106,7 +106,7 @@ export function Inventory({ items, ownedPokemon, playerName, onUseRareCandy, onB
             {items.map((item, index) => {
               const isCandy = item.itemName === 'Rare Candy';
               return (
-                <PokeCard key={item.itemName} className="p-4 slide-in-right" style={{ animationDelay: `${index * 0.1}s` }}>
+                <PokeCard key={item.itemName} className="p-4 " style={{ animationDelay: `${index * 0.1}s` }}>
                   <div className="flex items-center gap-4">
                     <div
                       className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0"
@@ -132,7 +132,7 @@ export function Inventory({ items, ownedPokemon, playerName, onUseRareCandy, onB
                   {isCandy && item.quantity > 0 && (
                     <button
                       onClick={() => setSelectingPokemon(true)}
-                      className="mt-3 w-full py-2.5 rounded-xl font-semibold text-sm text-white active:scale-95 transition-all"
+                      className="mt-3 w-full py-2.5 rounded-xl font-semibold text-sm text-white  "
                       style={{ background: 'linear-gradient(135deg, #D69E2E, #ECC94B)' }}
                     >
                       Use Rare Candy 🍬

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { OwnedPokemon } from '../store/gameStoreSupabase';
+import { OwnedPokemon } from '../store/gameStore';
 import { getPokemonById, getTypeColor } from '../data/pokemonData';
 import { PokemonSprite, TypeBadge, RegionBadge, LevelBadge, SourceBadge, PokeHeader, PokeCard, EmptyState } from './PokeShared';
 
@@ -110,7 +110,7 @@ export function Pokedex({ ownedPokemon, onBack }: Props) {
               <button
                 key={type}
                 onClick={() => setFilter(type)}
-                className="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all"
+                className="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap "
                 style={{
                   background: active ? (color?.badge ?? '#CC0000') : '#f1f5f9',
                   color: active ? '#fff' : '#64748b',
@@ -136,7 +136,7 @@ export function Pokedex({ ownedPokemon, onBack }: Props) {
                 <button
                   key={owned.id}
                   onClick={() => setSelected(owned)}
-                  className="w-full bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 hover:shadow-md active:scale-95 transition-all text-left fade-in"
+                  className="w-full bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 hover:shadow-md   text-left "
                   style={{ borderLeftWidth: 4, borderLeftColor: typeColor.border, animationDelay: `${index * 0.05}s` }}
                 >
                   <div className="rounded-xl p-1.5 float" style={{ background: typeColor.bg, animationDelay: `${index * 0.1}s` }}>

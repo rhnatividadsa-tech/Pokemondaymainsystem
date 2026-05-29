@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Player, OwnedPokemon } from '../store/gameStoreSupabase';
+import { Player, OwnedPokemon } from '../store/gameStore';
 import { POKEMON_DATABASE, getPokemonById, PokemonData } from '../data/pokemonData';
 import { PokemonSprite, TypeBadge, LevelBadge, PokeHeader, PokeCard } from './PokeShared';
 
@@ -17,7 +17,7 @@ interface Props {
     sourceSystem: string,
     notes: string,
     addNewPokemon: boolean,
-  ) => Promise<void>;
+  ) => void;
   onBack: () => void;
 }
 
@@ -181,7 +181,7 @@ export function FacilitatorLog({ players, allOwnedPokemon, onLogResult, onBack }
                   if (r.value === 'Caught') setAddNewPokemon(true);
                   else setAddNewPokemon(false);
                 }}
-                className="py-2 px-3 rounded-xl text-sm font-semibold transition-all border-2"
+                className="py-2 px-3 rounded-xl text-sm font-semibold  border-2"
                 style={{
                   borderColor: resultOption === r.value ? '#CC0000' : '#E2E8F0',
                   background: resultOption === r.value ? '#FFF5F5' : '#fff',
@@ -263,7 +263,7 @@ export function FacilitatorLog({ players, allOwnedPokemon, onLogResult, onBack }
                     <button
                       key={owned.id}
                       onClick={() => selectPokemon(pd2)}
-                      className="flex flex-col items-center gap-0.5 p-2 rounded-xl border-2 min-w-[60px] transition-all"
+                      className="flex flex-col items-center gap-0.5 p-2 rounded-xl border-2 min-w-[60px] "
                       style={{ borderColor: selectedPokemonData?.id === pd2.id ? '#CC0000' : '#E2E8F0' }}
                     >
                       <PokemonSprite spriteId={pd2.spriteId} name={pd2.name} size={40} />
@@ -291,7 +291,7 @@ export function FacilitatorLog({ players, allOwnedPokemon, onLogResult, onBack }
 
         <button
           onClick={handleSubmit}
-          className="w-full py-4 rounded-xl font-bold text-white text-base active:scale-95 transition-all"
+          className="w-full py-4 rounded-xl font-bold text-white text-base  "
           style={{ background: 'linear-gradient(135deg, #CC0000, #FF4444)', boxShadow: '0 4px 15px rgba(204,0,0,0.3)' }}
         >
           Log Result ✓

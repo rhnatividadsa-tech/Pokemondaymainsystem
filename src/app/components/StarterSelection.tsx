@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { POKEMON_DATABASE, PokemonData } from '../data/pokemonData';
-import { Player } from '../store/gameStoreSupabase';
+import { Player } from '../store/gameStore';
 import { PokemonSprite, TypeBadge, RegionBadge, PokeHeader } from './PokeShared';
 
 interface Props {
   player: Player;
-  onSelect: (pokemonDataId: string, pokemonName: string) => Promise<void>;
+  onSelect: (pokemonDataId: string, pokemonName: string) => void;
   onBack: () => void;
   alreadyHasStarter: boolean;
   currentStarterId?: string;
@@ -143,7 +143,7 @@ export function StarterSelection({ player, onSelect, onBack, alreadyHasStarter, 
             </div>
             <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-500"
+                className="h-full rounded-full  duration-500"
                 style={{ width: `${progress}%`, background: 'linear-gradient(90deg, #CC0000, #FF4444)' }}
               />
             </div>
@@ -161,7 +161,7 @@ export function StarterSelection({ player, onSelect, onBack, alreadyHasStarter, 
               <button
                 key={opt.type}
                 onClick={() => handleAnswer(opt.type)}
-                className="w-full p-4 rounded-2xl text-left font-medium bg-white border-2 border-gray-100 hover:border-red-300 active:scale-95 transition-all shadow-sm"
+                className="w-full p-4 rounded-2xl text-left font-medium bg-white border-2 border-gray-100 hover:border-red-300   shadow-sm"
                 style={{ fontSize: '0.95rem' }}
               >
                 {opt.label}
@@ -197,7 +197,7 @@ export function StarterSelection({ player, onSelect, onBack, alreadyHasStarter, 
               <button
                 key={pokemon.id}
                 onClick={() => handlePickStarter(pokemon)}
-                className="w-full bg-white rounded-2xl p-4 border-2 border-gray-100 flex items-center gap-4 hover:border-red-300 active:scale-95 transition-all shadow-sm text-left"
+                className="w-full bg-white rounded-2xl p-4 border-2 border-gray-100 flex items-center gap-4 hover:border-red-300   shadow-sm text-left"
               >
                 <div className="rounded-xl p-2" style={{ background: '#FFF5F5' }}>
                   <PokemonSprite spriteId={pokemon.spriteId} name={pokemon.name} size={64} />
@@ -257,7 +257,7 @@ export function StarterSelection({ player, onSelect, onBack, alreadyHasStarter, 
           <div className="flex flex-col gap-3 w-full max-w-xs">
             <button
               onClick={() => onSelect(selected.id, selected.name)}
-              className="w-full py-4 rounded-xl font-bold text-white text-lg active:scale-95 transition-all"
+              className="w-full py-4 rounded-xl font-bold text-white text-lg  "
               style={{
                 background: 'linear-gradient(135deg, #CC0000 0%, #FF4444 100%)',
                 boxShadow: '0 4px 15px rgba(204,0,0,0.4)',

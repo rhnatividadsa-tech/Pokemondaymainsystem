@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useGameStore } from './store/gameStoreSupabase';
+import { useGameStore } from './store/gameStore';
 import { StartPage } from './components/StartPage';
 import { Dashboard } from './components/Dashboard';
 import { StarterSelection } from './components/StarterSelection';
@@ -42,8 +42,8 @@ export default function App() {
     window.scrollTo(0, 0);
   }
 
-  async function handleStart(name: string) {
-    await store.findOrCreatePlayer(name);
+  function handleStart(name: string) {
+    store.findOrCreatePlayer(name);
     setCurrentPage('dashboard');
   }
 
@@ -52,28 +52,28 @@ export default function App() {
     setCurrentPage('start');
   }
 
-  async function handleSelectStarter(pokemonDataId: string, pokemonName: string) {
+  function handleSelectStarter(pokemonDataId: string, pokemonName: string) {
     if (!currentPlayer) return;
-    await store.setStarterPokemon(currentPlayer.id, pokemonDataId, pokemonName);
+    store.setStarterPokemon(currentPlayer.id, pokemonDataId, pokemonName);
     navigate('dashboard');
   }
 
-  async function handleBuyItem(itemName: string, price: number): Promise<boolean> {
+  function handleBuyItem(itemName: string, price: number): boolean {
     if (!currentPlayer) return false;
-    return await store.buyItem(currentPlayer.id, itemName, price);
+    return store.buyItem(currentPlayer.id, itemName, price);
   }
 
-  async function handleEvolve(ownedId: string, newPokemonDataId: string, newName: string, stoneName: string): Promise<boolean> {
+  function handleEvolve(ownedId: string, newPokemonDataId: string, newName: string, stoneName: string): boolean {
     if (!currentPlayer) return false;
-    return await store.evolvePokemon(currentPlayer.id, ownedId, newPokemonDataId, newName, stoneName);
+    return store.evolvePokemon(currentPlayer.id, ownedId, newPokemonDataId, newName, stoneName);
   }
 
-  async function handleUseRareCandy(ownedId: string, pokemonName: string): Promise<boolean> {
+  function handleUseRareCandy(ownedId: string, pokemonName: string): boolean {
     if (!currentPlayer) return false;
-    return await store.useRareCandy(currentPlayer.id, ownedId, pokemonName);
+    return store.useRareCandy(currentPlayer.id, ownedId, pokemonName);
   }
 
-  async function handleFacilitatorLog(
+  function handleFacilitatorLog(
     playerId: string,
     ownedId: string | null,
     pokemonDataId: string | null,
@@ -87,12 +87,12 @@ export default function App() {
   ) {
     if (addNewPokemon && pokemonDataId) {
       const source = gameName.toLowerCase().includes('irl') ? 'IRL Catch' as const : 'Manual Log' as const;
-      await store.addPokemonToPlayer(playerId, pokemonDataId, source, coinsEarned, gameName, notes || undefined);
+      store.addPokemonToPlayer(playerId, pokemonDataId, source, coinsEarned, gameName, notes || undefined);
     } else if (ownedId && (levelGain > 0 || coinsEarned > 0)) {
-      await store.updatePokemonLevel(playerId, ownedId, levelGain, coinsEarned, gameName, result, sourceSystem, notes || undefined);
+      store.updatePokemonLevel(playerId, ownedId, levelGain, coinsEarned, gameName, result, sourceSystem, notes || undefined);
     } else if (coinsEarned > 0) {
       // Coins only — use a dummy ownedId path; store handles missing gracefully via history
-      await store.updatePokemonLevel(playerId, '', levelGain, coinsEarned, gameName, result, sourceSystem, notes || undefined);
+      store.updatePokemonLevel(playerId, '', levelGain, coinsEarned, gameName, result, sourceSystem, notes || undefined);
     }
   }
 
@@ -225,12 +225,12 @@ export default function App() {
                 <button
                   key={item.page}
                   onClick={() => navigate(item.page)}
-                  className="relative flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-all"
+                  className="relative flex-1 flex flex-col items-center justify-center py-2 gap-0.5 "
                   style={{ color: active ? '#CC0000' : '#94A3B8' }}
                 >
                   {active && (
                     <div
-                      className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full fade-in"
+                      className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full "
                       style={{ background: '#CC0000' }}
                     />
                   )}

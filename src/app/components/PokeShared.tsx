@@ -89,7 +89,7 @@ export function PokeHeader({
 
 export function PokeCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 transition-all hover:shadow-md ${className}`}>
+    <div className={`bg-white rounded-2xl shadow-sm border border-gray-100  hover:shadow-md ${className}`}>
       {children}
     </div>
   );

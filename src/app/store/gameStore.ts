@@ -208,7 +208,7 @@ function makeEntry(base: Omit<GameHistoryEntry, 'id' | 'createdAt'>): GameHistor
 }
 
 export function useGameStore() {
-  const [state, dispatch] = useReducer(reducer, undefined, loadState);
+  const [state, dispatch] = useReducer(reducer, loadState());
 
   const currentPlayer = state.players.find(p => p.id === state.currentPlayerId) ?? null;
 

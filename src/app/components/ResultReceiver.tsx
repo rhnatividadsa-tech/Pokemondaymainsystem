@@ -145,7 +145,7 @@ export function ResultReceiver({ onProcess, onBack }: Props) {
           <button
             onClick={handleParse}
             disabled={!jsonInput.trim()}
-            className="mt-3 w-full py-2.5 rounded-xl font-semibold text-sm transition-all"
+            className="mt-3 w-full py-2.5 rounded-xl font-semibold text-sm "
             style={{
               background: jsonInput.trim() ? '#1a1a2e' : '#E2E8F0',
               color: jsonInput.trim() ? '#FFDE00' : '#A0AEC0',
@@ -170,7 +170,7 @@ export function ResultReceiver({ onProcess, onBack }: Props) {
             </div>
             <button
               onClick={handleProcess}
-              className="mt-4 w-full py-3 rounded-xl font-bold text-white active:scale-95 transition-all"
+              className="mt-4 w-full py-3 rounded-xl font-bold text-white  "
               style={{ background: 'linear-gradient(135deg, #CC0000, #FF4444)' }}
             >
               Process Result →

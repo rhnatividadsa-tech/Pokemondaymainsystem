@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Player } from '../store/gameStoreSupabase';
+import { Player } from '../store/gameStore';
 import { STORE_ITEMS } from '../data/pokemonData';
 import { CoinDisplay, PokeHeader, PokeCard } from './PokeShared';
 
 interface Props {
   player: Player;
-  onBuy: (itemName: string, price: number) => Promise<boolean>;
+  onBuy: (itemName: string, price: number) => boolean;
   onBack: () => void;
 }
 
@@ -13,9 +13,9 @@ export function PokemonStore({ player, onBuy, onBack }: Props) {
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [buying, setBuying] = useState<string | null>(null);
 
-  async function handleBuy(itemName: string, price: number) {
+  function handleBuy(itemName: string, price: number) {
     setBuying(itemName);
-    const success = await onBuy(itemName, price);
+    const success = onBuy(itemName, price);
     if (success) {
       setMessage({ text: `${itemName} added to inventory!`, ok: true });
     } else {
@@ -73,7 +73,7 @@ export function PokemonStore({ player, onBuy, onBack }: Props) {
             {STORE_ITEMS.map((item, index) => {
               const canAfford = player.coins >= item.price;
               return (
-                <PokeCard key={item.name} className="p-4 slide-in-right" style={{ animationDelay: `${index * 0.1}s` }}>
+                <PokeCard key={item.name} className="p-4 " style={{ animationDelay: `${index * 0.1}s` }}>
                   <div className="flex items-center gap-3">
                     <div
                       className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0"
@@ -95,7 +95,7 @@ export function PokemonStore({ player, onBuy, onBack }: Props) {
                   <button
                     onClick={() => handleBuy(item.name, item.price)}
                     disabled={!canAfford || buying === item.name}
-                    className="mt-3 w-full py-2.5 rounded-xl font-semibold text-sm transition-all active:scale-95"
+                    className="mt-3 w-full py-2.5 rounded-xl font-semibold text-sm  "
                     style={{
                       background: canAfford ? 'linear-gradient(135deg, #CC0000, #FF4444)' : '#E2E8F0',
                       color: canAfford ? '#fff' : '#A0AEC0',

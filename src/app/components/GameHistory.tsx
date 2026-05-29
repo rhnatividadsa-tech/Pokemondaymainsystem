@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { GameHistoryEntry } from '../store/gameStoreSupabase';
+import { GameHistoryEntry } from '../store/gameStore';
 import { getPokemonById } from '../data/pokemonData';
 import { PokemonSprite, PokeHeader, EmptyState } from './PokeShared';
 
@@ -80,7 +80,7 @@ export function GameHistory({ history, playerName, onBack }: Props) {
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap "
             style={{
               background: filter === f.key ? '#1a1a2e' : '#F1F5F9',
               color: filter === f.key ? '#FFDE00' : '#64748B',
