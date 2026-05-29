@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, Pressable } from 'react-native';
+import { ChevronRight } from 'lucide-react-native';
 import { OwnedPokemon } from '../store/gameStore';
 import { getPokemonById, getTypeColor } from '../../../../../shared/data/pokemonData';
 import { PokemonSprite, TypeBadge, RegionBadge, LevelBadge, SourceBadge, PokeHeader, PokeCard, EmptyState } from './PokeShared';
@@ -31,146 +33,299 @@ export function Pokedex({ ownedPokemon, onBack }: Props) {
     const canEvolve = pd.evolvesTo && evolutionLvl !== null && selected.level >= evolutionLvl;
 
     return (
-      <div className="flex flex-col min-h-full">
+      <View style={styles.container}>
         <PokeHeader title={pd.name} onBack={() => setSelected(null)} />
-        <div className="flex-1 p-4 flex flex-col gap-4">
+        <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Sprite card */}
-          <div
-            className="rounded-3xl flex items-center justify-center py-8"
-            style={{ background: `linear-gradient(135deg, ${typeColor.bg}, white)`, border: `2px solid ${typeColor.border}` }}
-          >
+          <View style={[styles.spriteHeader, { backgroundColor: typeColor.bg, borderColor: typeColor.border }]}>
             <PokemonSprite spriteId={pd.spriteId} name={pd.name} size={140} />
-          </div>
+          </View>
 
           {/* Info */}
-          <PokeCard className="p-4 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-gray-800 text-xl">{pd.name}</h2>
+          <PokeCard style={styles.infoCard}>
+            <View style={styles.infoHeader}>
+              <Text style={styles.pokemonName}>{pd.name}</Text>
               <LevelBadge level={selected.level} />
-            </div>
+            </View>
 
-            <div className="flex gap-2 flex-wrap">
+            <View style={styles.badgeRow}>
               <TypeBadge type={pd.type} />
               <RegionBadge region={pd.region} />
               <SourceBadge source={selected.source} />
-            </div>
+            </View>
 
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
+            <View style={styles.statsGrid}>
               <Stat label="Evolution Stage" value={`Stage ${pd.evolutionStage}`} />
               <Stat label="Level" value={selected.level.toString()} />
               <Stat label="Caught" value={new Date(selected.caughtAt).toLocaleDateString()} />
               <Stat label="Status" value={selected.status} />
-            </div>
+            </View>
 
             {pd.evolvesTo && (
-              <div className="rounded-xl p-3 text-sm" style={{ background: canEvolve ? '#F0FFF4' : '#F7FAFC', border: `1px solid ${canEvolve ? '#38A169' : '#E2E8F0'}` }}>
+              <View style={[styles.evolutionNotice, canEvolve ? styles.evolveReady : styles.evolveWait]}>
                 {canEvolve ? (
-                  <p className="text-green-700">
-                    ✨ Ready to evolve with <strong>{pd.requiredStone}</strong>! Go to the Evolution page.
-                  </p>
+                  <Text style={styles.evolveReadyText}>
+                    ✨ Ready to evolve with {pd.requiredStone}! Go to the Evolution page.
+                  </Text>
                 ) : (
-                  <p className="text-gray-500">
+                  <Text style={styles.evolveWaitText}>
                     Next evolution at Lv.{evolutionLvl} with {pd.requiredStone}. ({Math.max(0, (evolutionLvl ?? 0) - selected.level)} more levels needed)
-                  </p>
+                  </Text>
                 )}
-              </div>
+              </View>
             )}
           </PokeCard>
-        </div>
-      </div>
+        </ScrollView>
+      </View>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-full">
+    <View style={styles.container}>
       <PokeHeader
         title="Pokédex"
         onBack={onBack}
-        rightContent={
-          <span className="text-white/80 text-sm font-semibold">{ownedPokemon.length} caught</span>
-        }
+        rightContent={<Text style={styles.headerRight}>{ownedPokemon.length} caught</Text>}
       />
 
-      <div className="flex flex-col gap-3 p-3">
+      <View style={styles.controls}>
         {/* Search */}
-        <input
-          type="text"
+        <TextInput
+          style={styles.searchInput}
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChangeText={setSearch}
           placeholder="🔍 Search Pokémon..."
-          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white outline-none text-sm"
+          placeholderTextColor="#9CA3AF"
         />
 
         {/* Type filter */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterList}>
           {types.map(type => {
             const color = type === 'All' ? null : getTypeColor(type);
             const active = filter === type;
             return (
-              <button
+              <Pressable
                 key={type}
-                onClick={() => setFilter(type)}
-                className="px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap "
-                style={{
-                  background: active ? (color?.badge ?? '#CC0000') : '#f1f5f9',
-                  color: active ? '#fff' : '#64748b',
-                }}
+                onPress={() => setFilter(type)}
+                style={[
+                  styles.filterButton,
+                  { backgroundColor: active ? (color?.badge ?? '#CC0000') : '#f1f5f9' },
+                ]}
               >
-                {type}
-              </button>
+                <Text style={[styles.filterButtonText, { color: active ? '#fff' : '#64748b' }]}>
+                  {type}
+                </Text>
+              </Pressable>
             );
           })}
-        </div>
-      </div>
+        </ScrollView>
+      </View>
 
-      <div className="flex-1 px-3 pb-4">
+      <ScrollView contentContainerStyle={styles.listContent}>
         {filtered.length === 0 ? (
           <EmptyState icon="📔" message="No Pokémon found. Catch some in the wild or through games!" />
         ) : (
-          <div className="flex flex-col gap-2">
-            {filtered.map((owned, index) => {
+          <View style={styles.listGrid}>
+            {filtered.map((owned) => {
               const pd = getPokemonById(owned.pokemonDataId);
               if (!pd) return null;
               const typeColor = getTypeColor(pd.type);
               return (
-                <button
+                <Pressable
                   key={owned.id}
-                  onClick={() => setSelected(owned)}
-                  className="w-full bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 hover:shadow-md   text-left "
-                  style={{ borderLeftWidth: 4, borderLeftColor: typeColor.border, animationDelay: `${index * 0.05}s` }}
+                  onPress={() => setSelected(owned)}
+                  style={[styles.listItem, { borderLeftColor: typeColor.border }]}
                 >
-                  <div className="rounded-xl p-1.5 float" style={{ background: typeColor.bg, animationDelay: `${index * 0.1}s` }}>
+                  <View style={[styles.listSpriteWrapper, { backgroundColor: typeColor.bg }]}>
                     <PokemonSprite spriteId={pd.spriteId} name={pd.name} size={52} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="font-bold text-gray-800 truncate">{pd.name}</span>
+                  </View>
+                  <View style={styles.listContentCol}>
+                    <View style={styles.listTitleRow}>
+                      <Text style={styles.listTitle}>{pd.name}</Text>
                       <LevelBadge level={owned.level} />
-                    </div>
-                    <div className="flex gap-1 flex-wrap">
+                    </View>
+                    <View style={styles.badgeRow}>
                       <TypeBadge type={pd.type} />
                       <RegionBadge region={pd.region} />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">{pd.evolutionStage < 3 ? `Stage ${pd.evolutionStage} • Can evolve` : 'Final form'}</p>
-                  </div>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CBD5E0" strokeWidth="2">
-                    <path d="M9 18l6-6-6-6"/>
-                  </svg>
-                </button>
+                    </View>
+                    <Text style={styles.listSubtitle}>
+                      {pd.evolutionStage < 3 ? `Stage ${pd.evolutionStage} • Can evolve` : 'Final form'}
+                    </Text>
+                  </View>
+                  <ChevronRight color="#CBD5E0" size={20} />
+                </Pressable>
               );
             })}
-          </div>
+          </View>
         )}
-      </div>
-    </div>
+      </ScrollView>
+    </View>
   );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <p className="text-xs text-gray-400">{label}</p>
-      <p className="text-sm font-semibold text-gray-700">{value}</p>
-    </div>
+    <View style={styles.statContainer}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue}>{value}</Text>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+  },
+  scrollContent: {
+    padding: 16,
+    gap: 16,
+  },
+  headerRight: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  controls: {
+    padding: 12,
+    gap: 12,
+  },
+  searchInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 14,
+  },
+  filterList: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 4,
+  },
+  filterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 9999,
+  },
+  filterButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  listContent: {
+    paddingHorizontal: 12,
+    paddingBottom: 16,
+  },
+  listGrid: {
+    gap: 8,
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    borderLeftWidth: 4,
+    padding: 12,
+    gap: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  listSpriteWrapper: {
+    padding: 6,
+    borderRadius: 12,
+  },
+  listContentCol: {
+    flex: 1,
+  },
+  listTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  listTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginBottom: 4,
+  },
+  listSubtitle: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  spriteHeader: {
+    borderRadius: 24,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  infoCard: {
+    padding: 16,
+    gap: 12,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pokemonName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 12,
+    gap: 12,
+  },
+  statContainer: {
+    width: '45%',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  evolutionNotice: {
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  evolveReady: {
+    backgroundColor: '#F0FFF4',
+    borderColor: '#38A169',
+  },
+  evolveWait: {
+    backgroundColor: '#F7FAFC',
+    borderColor: '#E2E8F0',
+  },
+  evolveReadyText: {
+    color: '#276749',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  evolveWaitText: {
+    color: '#718096',
+    fontSize: 14,
+  },
+});

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { ChevronDown } from 'lucide-react-native';
 import { OwnedPokemon, InventoryItem } from '../store/gameStore';
 import { getPokemonById, getTypeColor } from '../../../../../shared/data/pokemonData';
 import { PokemonSprite, TypeBadge, LevelBadge, PokeHeader, PokeCard, EmptyState } from './PokeShared';
@@ -46,14 +48,16 @@ export function EvolutionPage({ ownedPokemon, inventory, onEvolve, onBack }: Pro
     }
 
     setEvolving(owned.id);
-    const success = onEvolve(owned.id, pd.evolvesTo, nextPd.name, pd.requiredStone!);
-    if (success) {
-      setMessage({ text: `${pd.name} evolved into ${nextPd.name}! ✨`, ok: true });
-    } else {
-      setMessage({ text: `Evolution failed. Check your stones.`, ok: false });
-    }
-    setEvolving(null);
-    setTimeout(() => setMessage(null), 3000);
+    setTimeout(() => {
+      const success = onEvolve(owned.id, pd.evolvesTo!, nextPd.name, pd.requiredStone!);
+      if (success) {
+        setMessage({ text: `${pd.name} evolved into ${nextPd.name}! ✨`, ok: true });
+      } else {
+        setMessage({ text: `Evolution failed. Check your stones.`, ok: false });
+      }
+      setEvolving(null);
+      setTimeout(() => setMessage(null), 3000);
+    }, 1500);
   }
 
   function getRequirements(owned: OwnedPokemon) {
@@ -67,43 +71,44 @@ export function EvolutionPage({ ownedPokemon, inventory, onEvolve, onBack }: Pro
   }
 
   return (
-    <div className="flex flex-col min-h-full">
+    <View style={styles.container}>
       <PokeHeader title="Evolution" onBack={onBack} />
-      <div className="flex-1 p-4 flex flex-col gap-4">
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {message && (
-          <div
-            className="rounded-xl p-3 text-sm font-semibold text-center"
-            style={{
-              background: message.ok ? '#F0FFF4' : '#FFF5F5',
-              color: message.ok ? '#276749' : '#C53030',
-              border: `1px solid ${message.ok ? '#C6F6D5' : '#FED7D7'}`,
-            }}
+          <View
+            style={[
+              styles.messageBox,
+              {
+                backgroundColor: message.ok ? '#F0FFF4' : '#FFF5F5',
+                borderColor: message.ok ? '#C6F6D5' : '#FED7D7',
+              },
+            ]}
           >
-            {message.ok ? '✨ ' : '❌ '}{message.text}
-          </div>
+            <Text style={[styles.messageText, { color: message.ok ? '#276749' : '#C53030' }]}>
+              {message.ok ? '✨ ' : '❌ '}{message.text}
+            </Text>
+          </View>
         )}
 
-        {/* Evolution rules */}
-        <PokeCard className="p-4">
-          <p className="text-xs font-semibold text-gray-600 mb-2">Evolution Requirements</p>
-          <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
-            <div className="rounded-lg p-2" style={{ background: '#FFF5F5' }}>
-              <p className="font-semibold text-gray-700">Stage 1 → 2</p>
-              <p>Level 20 + correct stone</p>
-            </div>
-            <div className="rounded-lg p-2" style={{ background: '#FFF5F5' }}>
-              <p className="font-semibold text-gray-700">Stage 2 → 3</p>
-              <p>Level 40 + correct stone</p>
-            </div>
-          </div>
+        <PokeCard style={styles.rulesCard}>
+          <Text style={styles.rulesHeader}>Evolution Requirements</Text>
+          <View style={styles.rulesGrid}>
+            <View style={styles.ruleBox}>
+              <Text style={styles.ruleTitle}>Stage 1 → 2</Text>
+              <Text style={styles.ruleText}>Level 20 + correct stone</Text>
+            </View>
+            <View style={styles.ruleBox}>
+              <Text style={styles.ruleTitle}>Stage 2 → 3</Text>
+              <Text style={styles.ruleText}>Level 40 + correct stone</Text>
+            </View>
+          </View>
         </PokeCard>
 
-        {/* Ready to evolve */}
         {evolvable.length > 0 && (
-          <div>
-            <p className="text-xs text-green-700 font-semibold uppercase tracking-wide mb-2">✨ Ready to Evolve ({evolvable.length})</p>
-            <div className="flex flex-col gap-3">
-              {evolvable.map((owned, index) => {
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>✨ Ready to Evolve ({evolvable.length})</Text>
+            <View style={styles.cardList}>
+              {evolvable.map((owned) => {
                 const pd = getPokemonById(owned.pokemonDataId);
                 const req = getRequirements(owned);
                 if (!pd || !req) return null;
@@ -111,65 +116,65 @@ export function EvolutionPage({ ownedPokemon, inventory, onEvolve, onBack }: Pro
                 const isEvolving = evolving === owned.id;
 
                 return (
-                  <PokeCard key={owned.id} className="p-4 " style={{ animationDelay: `${index * 0.1}s` }}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="rounded-xl p-2 float" style={{ background: typeColor.bg, border: `2px solid ${typeColor.border}`, animationDelay: `${index * 0.2}s` }}>
+                  <PokeCard key={owned.id} style={styles.evolveCard}>
+                    <View style={styles.evolveRow}>
+                      <View style={[styles.spriteWrapper, { backgroundColor: typeColor.bg, borderColor: typeColor.border, borderWidth: 2 }]}>
                         <PokemonSprite spriteId={pd.spriteId} name={pd.name} size={60} />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-gray-800">{pd.name}</span>
+                      </View>
+                      <View style={styles.evolveInfo}>
+                        <View style={styles.nameRow}>
+                          <Text style={styles.pokemonName}>{pd.name}</Text>
                           <LevelBadge level={owned.level} />
-                        </div>
+                        </View>
                         <TypeBadge type={pd.type} />
-                      </div>
+                      </View>
                       {req.nextPd && (
                         <>
-                          <div className="flex flex-col items-center text-gray-400 ">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M9 18l6-6-6-6"/>
-                            </svg>
-                            <span className="text-xs">evolves</span>
-                          </div>
-                          <div className="rounded-xl p-2 float-reverse glow-" style={{ background: '#F0FFF4', border: '2px solid #C6F6D5', animationDelay: `${index * 0.2 + 0.5}s` }}>
+                          <View style={styles.evolveArrow}>
+                            <ChevronDown color="#9CA3AF" size={24} />
+                            <Text style={styles.evolveText}>evolves</Text>
+                          </View>
+                          <View style={[styles.spriteWrapper, { backgroundColor: '#F0FFF4', borderColor: '#C6F6D5', borderWidth: 2 }]}>
                             <PokemonSprite spriteId={req.nextPd.spriteId} name={req.nextPd.name} size={60} />
-                          </div>
+                          </View>
                         </>
                       )}
-                    </div>
+                    </View>
 
                     {req.nextPd && (
-                      <p className="text-xs text-center text-gray-500 mb-3">
-                        {pd.name} → <strong>{req.nextPd.name}</strong> using <strong>{req.stone}</strong>
-                      </p>
+                      <Text style={styles.evolveDesc}>
+                        {pd.name} → <Text style={styles.bold}>{req.nextPd.name}</Text> using <Text style={styles.bold}>{req.stone}</Text>
+                      </Text>
                     )}
 
                     {req.hasStone ? (
-                      <button
-                        onClick={() => tryEvolve(owned)}
+                      <Pressable
+                        onPress={() => tryEvolve(owned)}
                         disabled={isEvolving}
-                        className="w-full py-3 rounded-xl font-bold text-white text-sm  "
-                        style={{ background: 'linear-gradient(135deg, #805AD5, #9F7AEA)' }}
+                        style={[styles.evolveButton, isEvolving && styles.evolvingButton]}
                       >
-                        {isEvolving ? 'Evolving...' : `✨ Evolve with ${req.stone}`}
-                      </button>
+                        <Text style={styles.evolveButtonText}>
+                          {isEvolving ? 'Evolving...' : `✨ Evolve with ${req.stone}`}
+                        </Text>
+                      </Pressable>
                     ) : (
-                      <div className="w-full py-2.5 rounded-xl text-center text-sm text-red-500 font-semibold" style={{ background: '#FFF5F5', border: '1px solid #FED7D7' }}>
-                        Need <strong>{req.stone}</strong> (buy from Store)
-                      </div>
+                      <View style={styles.needStoneBox}>
+                        <Text style={styles.needStoneText}>
+                          Need <Text style={styles.bold}>{req.stone}</Text> (buy from Store)
+                        </Text>
+                      </View>
                     )}
                   </PokeCard>
                 );
               })}
-            </div>
-          </div>
+            </View>
+          </View>
         )}
 
-        {/* Not ready */}
         {notReady.length > 0 && (
-          <div>
-            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">In Progress ({notReady.length})</p>
-            <div className="flex flex-col gap-2">
+          <View style={styles.section}>
+            <Text style={styles.sectionTitleMuted}>In Progress ({notReady.length})</Text>
+            <View style={styles.cardList}>
               {notReady.map(owned => {
                 const pd = getPokemonById(owned.pokemonDataId);
                 const req = getRequirements(owned);
@@ -177,36 +182,30 @@ export function EvolutionPage({ ownedPokemon, inventory, onEvolve, onBack }: Pro
                 const progress = Math.min(100, (owned.level / (req.reqLevel ?? 20)) * 100);
 
                 return (
-                  <PokeCard key={owned.id} className="p-3">
-                    <div className="flex items-center gap-3">
+                  <PokeCard key={owned.id} style={styles.progressCard}>
+                    <View style={styles.progressRow}>
                       <PokemonSprite spriteId={pd.spriteId} name={pd.name} size={48} />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-semibold text-gray-700 text-sm">{pd.name}</span>
+                      <View style={styles.progressInfo}>
+                        <View style={styles.nameRow}>
+                          <Text style={styles.progressName}>{pd.name}</Text>
                           <LevelBadge level={owned.level} />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: `${progress}%`,
-                                background: 'linear-gradient(90deg, #CC0000, #FF4444)',
-                              }}
-                            />
-                          </div>
-                          <span className="text-xs text-gray-500 whitespace-nowrap">Lv.{req.reqLevel}</span>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        </View>
+                        <View style={styles.progressBarRow}>
+                          <View style={styles.progressBarBg}>
+                            <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+                          </View>
+                          <Text style={styles.progressTargetText}>Lv.{req.reqLevel}</Text>
+                        </View>
+                        <Text style={styles.progressDescText}>
                           {Math.max(0, (req.reqLevel ?? 0) - owned.level)} more levels needed • {req.stone}
-                        </p>
-                      </div>
-                    </div>
+                        </Text>
+                      </View>
+                    </View>
                   </PokeCard>
                 );
               })}
-            </div>
-          </div>
+            </View>
+          </View>
         )}
 
         {ownedPokemon.filter(o => {
@@ -215,7 +214,189 @@ export function EvolutionPage({ ownedPokemon, inventory, onEvolve, onBack }: Pro
         }).length === 0 && (
           <EmptyState icon="✨" message="No Pokémon to evolve yet. Catch some starters and level them up!" />
         )}
-      </div>
-    </div>
+      </ScrollView>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+  },
+  scrollContent: {
+    padding: 16,
+    gap: 16,
+  },
+  messageBox: {
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  messageText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  rulesCard: {
+    padding: 16,
+  },
+  rulesHeader: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+    marginBottom: 8,
+  },
+  rulesGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  ruleBox: {
+    flex: 1,
+    backgroundColor: '#FFF5F5',
+    borderRadius: 8,
+    padding: 8,
+  },
+  ruleTitle: {
+    fontWeight: '600',
+    color: '#374151',
+    fontSize: 12,
+  },
+  ruleText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  section: {
+    gap: 8,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    color: '#15803D',
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionTitleMuted: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  cardList: {
+    gap: 12,
+  },
+  evolveCard: {
+    padding: 16,
+  },
+  evolveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  spriteWrapper: {
+    borderRadius: 12,
+    padding: 8,
+  },
+  evolveInfo: {
+    flex: 1,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  pokemonName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1F2937',
+  },
+  evolveArrow: {
+    alignItems: 'center',
+  },
+  evolveText: {
+    fontSize: 10,
+    color: '#9CA3AF',
+  },
+  evolveDesc: {
+    fontSize: 12,
+    textAlign: 'center',
+    color: '#6B7280',
+    marginBottom: 12,
+  },
+  bold: {
+    fontWeight: 'bold',
+    color: '#374151',
+  },
+  evolveButton: {
+    backgroundColor: '#805AD5',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  evolvingButton: {
+    opacity: 0.7,
+  },
+  evolveButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  needStoneBox: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FED7D7',
+    borderWidth: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  needStoneText: {
+    color: '#EF4444',
+    fontSize: 14,
+  },
+  progressCard: {
+    padding: 12,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  progressInfo: {
+    flex: 1,
+  },
+  progressName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  progressBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  progressBarBg: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#EF4444',
+    borderRadius: 4,
+  },
+  progressTargetText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  progressDescText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+});
