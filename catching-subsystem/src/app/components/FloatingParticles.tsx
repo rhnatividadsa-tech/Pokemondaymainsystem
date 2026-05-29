@@ -1,4 +1,4 @@
-import { POKEMON_DATABASE } from '../data/pokemonData';
+import { POKEMON_DATABASE } from '../../../../shared/data/pokemonData';
 import { PokemonSprite } from './PokeShared';
 
 export function FloatingParticles() {

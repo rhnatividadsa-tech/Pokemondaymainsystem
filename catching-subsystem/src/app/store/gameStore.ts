@@ -1,5 +1,5 @@
 import { useReducer, useCallback } from 'react';
-import { getPokemonByName } from '../data/pokemonData';
+import { getPokemonByName } from '../../../shared/data/pokemonData';
 
 export interface Player {
   id: string;

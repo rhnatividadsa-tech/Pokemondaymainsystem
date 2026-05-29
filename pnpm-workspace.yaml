@@ -1,2 +1,4 @@
 packages:
-  - '.'
+  - main-system
+  - catching-subsystem
+  - leveling-subsystem

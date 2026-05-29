@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { POKEMON_DATABASE, PokemonData } from '../data/pokemonData';
+import { POKEMON_DATABASE, PokemonData } from '../../../../shared/data/pokemonData';
 import { Player } from '../store/gameStore';
 import { PokemonSprite, TypeBadge, RegionBadge, PokeHeader } from './PokeShared';
 

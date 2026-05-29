@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { GameHistoryEntry } from '../store/gameStore';
-import { getPokemonById } from '../data/pokemonData';
+import { getPokemonById } from '../../../../shared/data/pokemonData';
 import { PokemonSprite, PokeHeader, EmptyState } from './PokeShared';
 
 interface Props {

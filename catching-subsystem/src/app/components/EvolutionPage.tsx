@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { OwnedPokemon, InventoryItem } from '../store/gameStore';
-import { getPokemonById, getTypeColor } from '../data/pokemonData';
+import { getPokemonById, getTypeColor } from '../../../../shared/data/pokemonData';
 import { PokemonSprite, TypeBadge, LevelBadge, PokeHeader, PokeCard, EmptyState } from './PokeShared';
 
 interface Props {
