@@ -31,13 +31,13 @@ export interface SaveLevelingResultInput {
 }
 
 interface PlayerPokedexRow {
-  pokedex_id: string;
-  player_id: string;
-  pokemon_id: string;
+  id: string | number;
+  player_id: string | number;
+  pokemon_id: string | number;
   level: number | null;
   source: string | null;
   status: string | null;
-  pokemon_database:
+  pokemon:
     | {
         pokemon_name: string;
         type: string | null;
@@ -68,7 +68,7 @@ export async function findPlayerByName(playerName: string): Promise<PlayerRecord
 
   const { data, error } = await supabase
     .from('players')
-    .select('player_id, player_name, coin_balance')
+    .select('id, player_name')
     .ilike('player_name', normalizedName)
     .maybeSingle();
 
@@ -80,10 +80,24 @@ export async function findPlayerByName(playerName: string): Promise<PlayerRecord
     throw new Error('Player not found. Please register in the Main System first.');
   }
 
+  const { data: gameLogs, error: coinError } = await supabase
+    .from('game_logs')
+    .select('coins_earned')
+    .eq('player_id', data.id);
+
+  if (coinError) {
+    throw new Error(coinError.message);
+  }
+
+  const coinBalance = (gameLogs ?? []).reduce(
+    (total, gameLog) => total + (gameLog.coins_earned ?? 0),
+    0,
+  );
+
   return {
-    player_id: data.player_id,
+    player_id: String(data.id),
     player_name: data.player_name,
-    coin_balance: data.coin_balance ?? 0,
+    coin_balance: coinBalance,
   };
 }
 
@@ -91,16 +105,16 @@ export async function loadPlayerPokemon(playerId: string): Promise<PlayerPokemon
   requireText(playerId, 'player_id');
 
   const { data, error } = await supabase
-    .from('player_pokedex')
+    .from('player_pokemon')
     .select(
       `
-        pokedex_id,
+        id,
         player_id,
         pokemon_id,
         level,
         source,
         status,
-        pokemon_database (
+        pokemon (
           pokemon_name,
           type,
           region,
@@ -109,21 +123,21 @@ export async function loadPlayerPokemon(playerId: string): Promise<PlayerPokemon
       `,
     )
     .eq('player_id', playerId)
-    .order('pokedex_id', { ascending: true });
+    .order('id', { ascending: true });
 
   if (error) {
     throw new Error(error.message);
   }
 
   return ((data ?? []) as PlayerPokedexRow[]).map((row) => {
-    const pokemonDatabase = Array.isArray(row.pokemon_database)
-      ? row.pokemon_database[0]
-      : row.pokemon_database;
+    const pokemonDatabase = Array.isArray(row.pokemon)
+      ? row.pokemon[0]
+      : row.pokemon;
 
     return {
-      pokedex_id: row.pokedex_id,
-      player_id: row.player_id,
-      pokemon_id: row.pokemon_id,
+      pokedex_id: String(row.id),
+      player_id: String(row.player_id),
+      pokemon_id: String(row.pokemon_id),
       pokemon_name: pokemonDatabase?.pokemon_name ?? 'Unknown Pokemon',
       type: pokemonDatabase?.type ?? null,
       region: pokemonDatabase?.region ?? null,
@@ -158,9 +172,9 @@ export async function saveLevelingResult(input: SaveLevelingResultInput): Promis
   }
 
   const { data: pokedexRow, error: pokedexReadError } = await supabase
-    .from('player_pokedex')
+    .from('player_pokemon')
     .select('level')
-    .eq('pokedex_id', input.pokedex_id)
+    .eq('id', input.pokedex_id)
     .eq('player_id', input.player_id)
     .eq('pokemon_id', input.pokemon_id)
     .single();
@@ -174,36 +188,15 @@ export async function saveLevelingResult(input: SaveLevelingResultInput): Promis
   const appliedLevelGain = Math.max(0, nextLevel - currentLevel);
 
   const { error: pokedexUpdateError } = await supabase
-    .from('player_pokedex')
+    .from('player_pokemon')
     .update({ level: nextLevel })
-    .eq('pokedex_id', input.pokedex_id);
+    .eq('id', input.pokedex_id);
 
   if (pokedexUpdateError) {
     throw new Error(pokedexUpdateError.message);
   }
 
-  const { data: playerRow, error: playerReadError } = await supabase
-    .from('players')
-    .select('coin_balance')
-    .eq('player_id', input.player_id)
-    .single();
-
-  if (playerReadError) {
-    throw new Error(playerReadError.message);
-  }
-
-  const currentCoinBalance = playerRow?.coin_balance ?? 0;
-
-  const { error: playerUpdateError } = await supabase
-    .from('players')
-    .update({ coin_balance: currentCoinBalance + coinsEarned })
-    .eq('player_id', input.player_id);
-
-  if (playerUpdateError) {
-    throw new Error(playerUpdateError.message);
-  }
-
-  const { error: historyInsertError } = await supabase.from('game_history').insert({
+  const { error: historyInsertError } = await supabase.from('game_logs').insert({
     player_id: input.player_id,
     pokemon_id: input.pokemon_id,
     game_name: input.game_name,
