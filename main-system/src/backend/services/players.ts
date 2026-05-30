@@ -1,6 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { addHistoryLog } from './history';
-import { clampCoins, mapPlayer, Player, PlayerRow } from '../types';
+import { clampCoins, mapPlayer, Player, PlayerRow, WalletRow } from '../types';
 
 function normalizePlayerName(playerName: string): string {
   const name = playerName.trim();
@@ -10,27 +10,61 @@ function normalizePlayerName(playerName: string): string {
   return name;
 }
 
+async function getWallet(playerId: string): Promise<WalletRow | null> {
+  const { data, error } = await supabase
+    .from('wallets')
+    .select()
+    .eq('player_id', playerId)
+    .maybeSingle<WalletRow>();
+
+  if (error) {
+    throw new Error(`Failed to load wallet: ${error.message}`);
+  }
+
+  return data;
+}
+
+async function ensureWallet(playerId: string): Promise<WalletRow> {
+  const existing = await getWallet(playerId);
+  if (existing) return existing;
+
+  const { data, error } = await supabase
+    .from('wallets')
+    .insert({ player_id: playerId, coin_balance: 0 })
+    .select()
+    .single<WalletRow>();
+
+  if (error) {
+    throw new Error(`Failed to create wallet: ${error.message}`);
+  }
+
+  return data;
+}
+
 /**
- * Finds a player by name using the schema's case-insensitive unique rule.
+ * Finds a player by the updated players.player_name column.
  */
 export async function getPlayerByName(playerName: string): Promise<Player | null> {
   const name = normalizePlayerName(playerName);
   const { data, error } = await supabase
     .from('players')
     .select()
-    .ilike('name', name)
+    .ilike('player_name', name)
     .maybeSingle<PlayerRow>();
 
   if (error) {
     throw new Error(`Failed to get player by name: ${error.message}`);
   }
 
-  return data ? mapPlayer(data) : null;
+  if (!data) return null;
+
+  const wallet = await ensureWallet(data.id);
+  return mapPlayer(data, wallet.coin_balance);
 }
 
 /**
  * Used by login/start journey. Existing names resume the same player record;
- * new names create a row in players.
+ * new names create a player row and matching wallets row.
  */
 export async function findOrCreatePlayer(playerName: string): Promise<{ player: Player; isNew: boolean }> {
   const name = normalizePlayerName(playerName);
@@ -42,7 +76,7 @@ export async function findOrCreatePlayer(playerName: string): Promise<{ player: 
 
   const { data, error } = await supabase
     .from('players')
-    .insert({ name, coins: 0 })
+    .insert({ player_name: name })
     .select()
     .single<PlayerRow>();
 
@@ -50,49 +84,42 @@ export async function findOrCreatePlayer(playerName: string): Promise<{ player: 
     throw new Error(`Failed to create player: ${error.message}`);
   }
 
-  const player = mapPlayer(data);
+  const wallet = await ensureWallet(data.id);
+  const player = mapPlayer(data, wallet.coin_balance);
+
   await addHistoryLog({
     playerId: player.id,
     gameName: 'Journey Started',
     result: 'created',
     sourceSystem: 'main_system',
-    notes: `${player.name} started a Pokemon journey.`,
+    loggedBy: 'main_system',
   });
 
   return { player, isNew: true };
 }
 
 /**
- * Adds or removes coins while respecting the database rule that coins cannot
- * be negative. A history row is written for every explicit coin update.
+ * Adds or removes coins in wallets.coin_balance while keeping the balance >= 0.
+ * A game_logs row is written for every explicit coin update.
  */
 export async function updatePlayerCoins(
   playerId: string,
   amountDelta: number,
   reason = 'Coin Update',
   sourceSystem = 'main_system',
-): Promise<Player> {
-  const { data: playerRow, error: fetchError } = await supabase
-    .from('players')
-    .select()
-    .eq('id', playerId)
-    .single<PlayerRow>();
-
-  if (fetchError) {
-    throw new Error(`Failed to load player coins: ${fetchError.message}`);
-  }
-
-  const nextCoins = clampCoins(playerRow.coins + amountDelta);
+): Promise<number> {
+  const wallet = await ensureWallet(playerId);
+  const nextCoins = clampCoins(wallet.coin_balance + amountDelta);
 
   const { data, error } = await supabase
-    .from('players')
-    .update({ coins: nextCoins })
-    .eq('id', playerId)
+    .from('wallets')
+    .update({ coin_balance: nextCoins })
+    .eq('player_id', playerId)
     .select()
-    .single<PlayerRow>();
+    .single<WalletRow>();
 
   if (error) {
-    throw new Error(`Failed to update player coins: ${error.message}`);
+    throw new Error(`Failed to update wallet coins: ${error.message}`);
   }
 
   await addHistoryLog({
@@ -101,9 +128,14 @@ export async function updatePlayerCoins(
     result: amountDelta >= 0 ? 'coins added' : 'coins spent',
     coinsEarned: amountDelta,
     sourceSystem,
-    notes: `Coins changed by ${amountDelta}. Current balance: ${nextCoins}.`,
+    loggedBy: sourceSystem,
   });
 
-  return mapPlayer(data);
+  return data.coin_balance;
+}
+
+export async function getPlayerCoins(playerId: string): Promise<number> {
+  const wallet = await ensureWallet(playerId);
+  return wallet.coin_balance;
 }
 

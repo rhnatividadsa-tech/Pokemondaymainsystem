@@ -1,16 +1,30 @@
 import { supabase } from '../supabaseClient';
 import { addHistoryLog } from './history';
-import { updatePlayerCoins } from './players';
+import { getPlayerCoins, updatePlayerCoins } from './players';
 import { evolvePokemon as updateEvolution } from './pokemon';
-import { InventoryItem, InventoryItemRow, mapInventoryItem, OwnedPokemon } from '../types';
+import { InventoryItem, InventoryRow, mapInventoryItem, OwnedPokemon, StoreItemRow } from '../types';
 
-async function getInventoryRow(playerId: string, itemName: string): Promise<InventoryItemRow | null> {
+async function getStoreItemByName(itemName: string): Promise<StoreItemRow> {
   const { data, error } = await supabase
-    .from('inventory_items')
+    .from('store_items')
+    .select()
+    .ilike('item_name', itemName.trim())
+    .single<StoreItemRow>();
+
+  if (error) {
+    throw new Error(`Failed to load store item "${itemName}": ${error.message}`);
+  }
+
+  return data;
+}
+
+async function getInventoryRow(playerId: string, itemId: number): Promise<InventoryRow | null> {
+  const { data, error } = await supabase
+    .from('inventory')
     .select()
     .eq('player_id', playerId)
-    .eq('item_name', itemName)
-    .maybeSingle<InventoryItemRow>();
+    .eq('item_id', itemId)
+    .maybeSingle<InventoryRow>();
 
   if (error) {
     throw new Error(`Failed to load inventory item: ${error.message}`);
@@ -19,59 +33,72 @@ async function getInventoryRow(playerId: string, itemName: string): Promise<Inve
   return data;
 }
 
-async function upsertInventoryQuantity(playerId: string, itemName: string, quantity: number): Promise<InventoryItem> {
-  const { data, error } = await supabase
-    .from('inventory_items')
-    .upsert(
-      {
-        player_id: playerId,
-        item_name: itemName,
-        quantity: Math.max(0, Math.trunc(quantity)),
-      },
-      { onConflict: 'player_id,item_name' },
-    )
-    .select()
-    .single<InventoryItemRow>();
+async function saveInventoryQuantity(
+  playerId: string,
+  item: StoreItemRow,
+  quantity: number,
+): Promise<InventoryItem> {
+  const existing = await getInventoryRow(playerId, item.id);
+  const nextQuantity = Math.max(0, Math.trunc(quantity));
 
-  if (error) {
-    throw new Error(`Failed to save inventory item: ${error.message}`);
+  if (existing) {
+    const { data, error } = await supabase
+      .from('inventory')
+      .update({ quantity: nextQuantity })
+      .eq('id', existing.id)
+      .select()
+      .single<InventoryRow>();
+
+    if (error) {
+      throw new Error(`Failed to update inventory item: ${error.message}`);
+    }
+
+    return mapInventoryItem(data, item.item_name);
   }
 
-  return mapInventoryItem(data);
+  const { data, error } = await supabase
+    .from('inventory')
+    .insert({
+      player_id: playerId,
+      item_id: item.id,
+      quantity: nextQuantity,
+    })
+    .select()
+    .single<InventoryRow>();
+
+  if (error) {
+    throw new Error(`Failed to create inventory item: ${error.message}`);
+  }
+
+  return mapInventoryItem(data, item.item_name);
 }
 
 /**
- * Buys an item: check coins, deduct coins, add item quantity, then log purchase.
+ * Buys an item: check wallets, deduct coins, add item quantity, then log purchase.
  */
-export async function buyStoreItem(playerId: string, itemName: string, price: number): Promise<InventoryItem> {
-  const { data: player, error: playerError } = await supabase
-    .from('players')
-    .select('coins')
-    .eq('id', playerId)
-    .single<{ coins: number }>();
+export async function buyStoreItem(playerId: string, itemName: string, price?: number): Promise<InventoryItem> {
+  const item = await getStoreItemByName(itemName);
+  const itemPrice = price ?? item.price;
+  const currentCoins = await getPlayerCoins(playerId);
 
-  if (playerError) {
-    throw new Error(`Failed to load player for purchase: ${playerError.message}`);
+  if (currentCoins < itemPrice) {
+    throw new Error(`Not enough coins to buy ${item.item_name}.`);
   }
 
-  if (player.coins < price) {
-    throw new Error(`Not enough coins to buy ${itemName}.`);
-  }
-
-  const existing = await getInventoryRow(playerId, itemName);
-  await updatePlayerCoins(playerId, -Math.abs(price), 'Pokemon Store', 'store');
-  const item = await upsertInventoryQuantity(playerId, itemName, (existing?.quantity ?? 0) + 1);
+  const existing = await getInventoryRow(playerId, item.id);
+  await updatePlayerCoins(playerId, -Math.abs(itemPrice), 'Pokemon Store', 'store');
+  const inventoryItem = await saveInventoryQuantity(playerId, item, (existing?.quantity ?? 0) + 1);
 
   await addHistoryLog({
     playerId,
     gameName: 'Pokemon Store',
     result: 'purchased',
-    coinsEarned: -Math.abs(price),
+    coinsEarned: -Math.abs(itemPrice),
     sourceSystem: 'store',
-    notes: `Bought ${itemName}.`,
+    loggedBy: `Bought ${item.item_name}.`,
   });
 
-  return item;
+  return inventoryItem;
 }
 
 /**
@@ -83,24 +110,25 @@ export async function consumeInventoryItem(
   quantity = 1,
   reason = 'Inventory',
 ): Promise<InventoryItem> {
-  const existing = await getInventoryRow(playerId, itemName);
+  const item = await getStoreItemByName(itemName);
+  const existing = await getInventoryRow(playerId, item.id);
   const amount = Math.max(1, Math.trunc(quantity));
 
   if (!existing || existing.quantity < amount) {
-    throw new Error(`Not enough ${itemName} in inventory.`);
+    throw new Error(`Not enough ${item.item_name} in inventory.`);
   }
 
-  const item = await upsertInventoryQuantity(playerId, itemName, existing.quantity - amount);
+  const inventoryItem = await saveInventoryQuantity(playerId, item, existing.quantity - amount);
 
   await addHistoryLog({
     playerId,
     gameName: reason,
     result: 'item consumed',
     sourceSystem: 'main_system',
-    notes: `Used ${amount} ${itemName}.`,
+    loggedBy: `Used ${amount} ${item.item_name}.`,
   });
 
-  return item;
+  return inventoryItem;
 }
 
 /**
@@ -110,7 +138,7 @@ export async function consumeInventoryItem(
 export async function evolvePokemon(
   playerId: string,
   ownedPokemonId: string,
-  newPokemonDataId: string,
+  newPokemonDataId: string | number,
   stoneName: string,
 ): Promise<OwnedPokemon> {
   await consumeInventoryItem(playerId, stoneName, 1, 'Evolution');

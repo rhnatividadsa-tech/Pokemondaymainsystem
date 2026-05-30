@@ -13,7 +13,7 @@ export type {
 } from './types';
 
 export { addHistoryLog } from './services/history';
-export { findOrCreatePlayer, getPlayerByName, updatePlayerCoins } from './services/players';
+export { findOrCreatePlayer, getPlayerByName, getPlayerCoins, updatePlayerCoins } from './services/players';
 export {
   addCaughtPokemon,
   getOwnedPokemonBySpecies,
@@ -27,4 +27,3 @@ export {
 export { processSubsystemResult } from './services/results';
 export { createManualLog } from './services/facilitator';
 export { validateSubsystemResult } from './validators/subsystemResult';
-

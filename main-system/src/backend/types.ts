@@ -1,48 +1,68 @@
 /**
- * Database row types mirror docs/database-schema.sql exactly.
- * These stay snake_case because they represent Supabase table columns.
+ * Database row types mirror the updated Supabase schema guide.
+ * Keep these snake_case because they represent actual table columns.
  */
 export interface PlayerRow {
   id: string;
-  name: string;
+  player_name: string;
   section: string | null;
   assigned_journey: string | null;
-  starter_pokemon_id: string | null;
-  coins: number;
+  starter_pokemon_id: number | null;
   created_at: string;
-  updated_at: string;
 }
 
-export interface OwnedPokemonRow {
+export interface WalletRow {
   id: string;
   player_id: string;
-  pokemon_data_id: string;
+  coin_balance: number;
+}
+
+export interface PokemonRow {
+  id: number;
+  pokemon_name: string;
+  type: string;
+  region: string;
+  image: string | null;
+  evolution_stage: number;
+  evolves_to: number | null;
+  required_stone: string | null;
+}
+
+export interface PlayerPokemonRow {
+  id: string;
+  player_id: string;
+  pokemon_id: number;
   level: number;
   source: PokemonSource;
   status: PokemonStatus;
-  caught_at: string;
-  updated_at: string;
-}
-
-export interface InventoryItemRow {
-  id: string;
-  player_id: string;
-  item_name: string;
-  quantity: number;
   created_at: string;
-  updated_at: string;
 }
 
-export interface GameHistoryRow {
+export interface StoreItemRow {
+  id: number;
+  item_name: string;
+  price: number;
+  effect: string;
+  compatible_type: string | null;
+}
+
+export interface InventoryRow {
   id: string;
   player_id: string;
-  pokemon_id: string | null;
+  item_id: number;
+  quantity: number;
+}
+
+export interface GameLogRow {
+  id: string;
+  player_id: string;
+  pokemon_id: number | null;
   game_name: string;
   result: string;
   level_gain: number;
   coins_earned: number;
   source_system: string;
-  notes: string | null;
+  logged_by: string | null;
   created_at: string;
 }
 
@@ -58,7 +78,6 @@ export interface Player {
   starterPokemonId?: string;
   coins: number;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface OwnedPokemon {
@@ -69,16 +88,14 @@ export interface OwnedPokemon {
   source: PokemonSource;
   status: PokemonStatus;
   caughtAt: string;
-  updatedAt: string;
 }
 
 export interface InventoryItem {
   id: string;
   playerId: string;
+  itemId: number;
   itemName: string;
   quantity: number;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface GameHistoryEntry {
@@ -90,7 +107,7 @@ export interface GameHistoryEntry {
   levelGain: number;
   coinsEarned: number;
   sourceSystem: string;
-  notes?: string;
+  loggedBy?: string;
   createdAt: string;
 }
 
@@ -99,12 +116,13 @@ export type PokemonStatus = 'Active' | 'Inactive';
 
 export interface HistoryLogInput {
   playerId: string;
-  pokemonId?: string | null;
+  pokemonId?: string | number | null;
   gameName: string;
   result: string;
   levelGain?: number;
   coinsEarned?: number;
   sourceSystem: string;
+  loggedBy?: string | null;
   notes?: string | null;
 }
 
@@ -136,54 +154,65 @@ export interface ServiceResult<T> {
   message: string;
 }
 
-export function mapPlayer(row: PlayerRow): Player {
+export function toPokemonDbId(pokemonId: string | number | null | undefined): number | null {
+  if (pokemonId === null || pokemonId === undefined || pokemonId === '') return null;
+  const value = typeof pokemonId === 'number' ? pokemonId : Number.parseInt(pokemonId, 10);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`Invalid pokemon id: ${pokemonId}`);
+  }
+  return value;
+}
+
+export function toPokemonDataId(pokemonId: number | null | undefined): string | undefined {
+  if (pokemonId === null || pokemonId === undefined) return undefined;
+  return String(pokemonId).padStart(3, '0');
+}
+
+export function mapPlayer(row: PlayerRow, coins = 0): Player {
   return {
     id: row.id,
-    name: row.name,
+    name: row.player_name,
     section: row.section ?? undefined,
     assignedJourney: row.assigned_journey ?? undefined,
-    starterPokemonId: row.starter_pokemon_id ?? undefined,
-    coins: row.coins,
+    starterPokemonId: toPokemonDataId(row.starter_pokemon_id),
+    coins,
     createdAt: row.created_at,
-    updatedAt: row.updated_at,
   };
 }
 
-export function mapOwnedPokemon(row: OwnedPokemonRow): OwnedPokemon {
+export function mapOwnedPokemon(row: PlayerPokemonRow): OwnedPokemon {
   return {
     id: row.id,
     playerId: row.player_id,
-    pokemonDataId: row.pokemon_data_id,
+    pokemonDataId: toPokemonDataId(row.pokemon_id) ?? String(row.pokemon_id),
     level: row.level,
     source: row.source,
     status: row.status,
-    caughtAt: row.caught_at,
-    updatedAt: row.updated_at,
+    caughtAt: row.created_at,
   };
 }
 
-export function mapInventoryItem(row: InventoryItemRow): InventoryItem {
+export function mapInventoryItem(row: InventoryRow, itemName: string): InventoryItem {
   return {
     id: row.id,
     playerId: row.player_id,
-    itemName: row.item_name,
+    itemId: row.item_id,
+    itemName,
     quantity: row.quantity,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
   };
 }
 
-export function mapHistoryEntry(row: GameHistoryRow): GameHistoryEntry {
+export function mapHistoryEntry(row: GameLogRow): GameHistoryEntry {
   return {
     id: row.id,
     playerId: row.player_id,
-    pokemonId: row.pokemon_id ?? undefined,
+    pokemonId: toPokemonDataId(row.pokemon_id),
     gameName: row.game_name,
     result: row.result,
     levelGain: row.level_gain,
     coinsEarned: row.coins_earned,
     sourceSystem: row.source_system,
-    notes: row.notes ?? undefined,
+    loggedBy: row.logged_by ?? undefined,
     createdAt: row.created_at,
   };
 }
