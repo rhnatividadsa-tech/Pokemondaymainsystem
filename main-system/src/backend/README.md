@@ -17,12 +17,15 @@ The client also accepts `SUPABASE_URL` and `SUPABASE_ANON_KEY` as fallbacks.
 
 ## Database
 
-The services match `docs/database-schema.sql` and query these tables using snake_case columns:
+The services match the updated schema guide and query these tables using snake_case columns:
 
 - `players`
-- `owned_pokemon`
-- `inventory_items`
-- `game_history`
+- `wallets`
+- `pokemon`
+- `player_pokemon`
+- `store_items`
+- `inventory`
+- `game_logs`
 
 Returned objects are converted to camelCase for frontend use.
 
@@ -45,4 +48,4 @@ Returned objects are converted to camelCase for frontend use.
 - Levels are clamped at 100.
 - Coins are clamped so they never go below 0.
 - Subsystem payloads are validated against the shared result format rules.
-- Every gameplay mutation writes to `game_history` for auditing.
+- Every gameplay mutation writes to `game_logs` for auditing.

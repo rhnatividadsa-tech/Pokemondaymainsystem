@@ -14,7 +14,7 @@ function sourceForCaughtPokemon(sourceSystem: string) {
 
 /**
  * Receives a subsystem result, validates it against the shared result format,
- * updates the right player records, and writes game_history.
+ * updates the right player records, and writes game_logs.
  */
 export async function processSubsystemResult(payload: unknown): Promise<ServiceResult<SubsystemResult>> {
   const result = validateSubsystemResult(payload);
@@ -73,6 +73,7 @@ export async function processSubsystemResult(payload: unknown): Promise<ServiceR
     coinsEarned: result.coinsEarned,
     sourceSystem: result.sourceSystem,
     notes: `Subsystem result received from ${result.sourceSystem}.`,
+    loggedBy: result.sourceSystem,
   });
 
   if (result.coinsEarned > 0) {

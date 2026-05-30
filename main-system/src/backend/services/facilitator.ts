@@ -6,7 +6,7 @@ import { ManualLogInput, ServiceResult } from '../types';
 /**
  * Manual facilitator logging follows the same rules as subsystem results:
  * update Pokemon if selected, update coins if awarded, and always write
- * game_history so the facilitator action is auditable.
+ * game_logs so the facilitator action is auditable.
  */
 export async function createManualLog(input: ManualLogInput): Promise<ServiceResult<ManualLogInput>> {
   const sourceSystem = input.sourceSystem ?? 'facilitator';
@@ -42,7 +42,7 @@ export async function createManualLog(input: ManualLogInput): Promise<ServiceRes
       levelGain: input.levelGain,
       coinsEarned: input.coinsEarned,
       sourceSystem,
-      notes,
+      loggedBy: notes,
     });
   }
 
