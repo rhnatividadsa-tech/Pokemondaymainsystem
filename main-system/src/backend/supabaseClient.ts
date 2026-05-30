@@ -9,8 +9,12 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
  */
 const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
 
-const supabaseUrl = env.EXPO_PUBLIC_SUPABASE_URL ?? env.SUPABASE_URL;
-const supabaseAnonKey = env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? env.SUPABASE_ANON_KEY;
+const fallbackSupabaseUrl = 'https://vrmqgjkhzhxqalcviueb.supabase.co';
+const fallbackSupabaseAnonKey = 'sb_publishable_qpTlDnHkxNmOaHh8Uci1zQ_f2RqRfT1';
+
+const supabaseUrl = env.EXPO_PUBLIC_SUPABASE_URL ?? env.SUPABASE_URL ?? fallbackSupabaseUrl;
+const supabaseAnonKey =
+  env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? env.SUPABASE_ANON_KEY ?? fallbackSupabaseAnonKey;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
@@ -19,4 +23,3 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-

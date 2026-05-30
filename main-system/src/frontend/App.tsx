@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { findOrCreatePlayer, getPlayerDashboardStats, saveStarterPokemon } from '../backend/playerService';
 import {
   Animated,
   Easing,
@@ -137,6 +138,7 @@ export default function App() {
   const [nameInput, setNameInput] = useState('');
   const [error, setError] = useState('');
   const [playerName, setPlayerName] = useState('');
+  const [playerId, setPlayerId] = useState('');
   const [page, setPage] = useState<Page>('start');
   const [coins, setCoins] = useState(100);
   const [ownedPokemon, setOwnedPokemon] = useState<OwnedPokemon[]>([]);
@@ -164,43 +166,78 @@ export default function App() {
     ]);
   }
 
-  function startJourney() {
-    const trimmed = nameInput.trim();
-    if (!trimmed) {
-      setError('Please enter your trainer name!');
-      return;
-    }
-    if (trimmed.length < 2) {
-      setError('Name must be at least 2 characters.');
-      return;
-    }
-    setIsStarting(true);
-    setTimeout(() => {
-      setPlayerName(trimmed);
-      setPage('dashboard');
-      setIsStarting(false);
-      log('Journey Started', `${trimmed} began a Pokémon adventure.`);
-    }, 1150);
+ function startJourney() {
+  const trimmed = nameInput.trim();
+
+  if (!trimmed) {
+    setError('Please enter your trainer name!');
+    return;
   }
 
-  function chooseStarter(pokemon: PokemonData) {
-    const hasStarter = ownedPokemon.some(owned => owned.source === 'Starter');
-    if (hasStarter) {
-      setPage('dashboard');
-      return;
-    }
-    setOwnedPokemon(current => [
-      ...current,
-      {
-        id: `own_${Date.now()}`,
-        pokemonDataId: pokemon.id,
-        level: 5,
-        source: 'Starter',
-      },
-    ]);
-    log('Starter Selection', `${playerName} selected ${pokemon.name}.`);
-    setPage('dashboard');
+  if (trimmed.length < 2) {
+    setError('Name must be at least 2 characters.');
+    return;
   }
+
+  setError('');
+  setIsStarting(true);
+
+  setTimeout(() => {
+    findOrCreatePlayer(trimmed)
+      .then(async (player) => {
+        const stats = await getPlayerDashboardStats(player.player_id);
+
+        setPlayerName(player.player_name);
+        setPlayerId(player.player_id);
+        setCoins(player.coin_balance ?? 0);
+        setOwnedPokemon(
+          stats.pokedex.map((item) => ({
+            id: item.pokedex_id,
+            pokemonDataId: item.pokemon_id,
+            level: item.level,
+            source: item.source,
+          }))
+        );
+        setPage('dashboard');
+        log('Journey Started', `${player.player_name} began a Pokémon adventure.`);
+      })
+      .catch((error) => {
+  console.error('Start journey error:', error);
+  setError('Unable to start journey. Please try again.');
+})
+      .finally(() => {
+        setIsStarting(false);
+      });
+  }, 1150);
+}
+
+  function chooseStarter(pokemon: PokemonData) {
+  const hasStarter = ownedPokemon.some(owned => owned.source === 'Starter');
+
+  if (hasStarter) {
+    setPage('dashboard');
+    return;
+  }
+
+  saveStarterPokemon(playerId, pokemon.id)
+    .then((starterRecord) => {
+      setOwnedPokemon(current => [
+        ...current,
+        {
+          id: starterRecord.pokedex_id,
+          pokemonDataId: starterRecord.pokemon_id,
+          level: starterRecord.level,
+          source: starterRecord.source,
+        },
+      ]);
+
+      log('Starter Selection', `${playerName} selected ${pokemon.name}.`);
+      setPage('dashboard');
+    })
+    .catch((error) => {
+      console.error('Starter selection error:', error);
+    });
+}
 
   function buyItem(item: StoreItem) {
     if (coins < item.price) return;
@@ -1265,12 +1302,16 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   transitionOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 99,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#CC0000',
-  },
+  position: 'absolute',
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0,
+  zIndex: 99,
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: '#CC0000',
+},
   transitionBall: {
     width: 96,
     height: 96,
