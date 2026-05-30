@@ -2,14 +2,15 @@ import { Trophy, TrendingUp, Coins, X, CheckCircle } from 'lucide-react';
 
 interface MatchResultCardProps {
   matchedPairs: number;
+  totalPairs: number;
   onClose: () => void;
 }
 
-export function MatchResultCard({ matchedPairs, onClose }: MatchResultCardProps) {
+export function MatchResultCard({ matchedPairs, totalPairs, onClose }: MatchResultCardProps) {
   const getRewards = (pairs: number) => {
-    if (pairs === 4) {
+    if (pairs >= 2) {
       return { levels: 10, coins: 15, tier: 'Perfect Match!', color: '#10B981' };
-    } else if (pairs >= 2) {
+    } else if (pairs === 1) {
       return { levels: 3, coins: 5, tier: 'Good Job!', color: '#2563EB' };
     } else {
       return { levels: 0, coins: 0, tier: 'Better Luck Next Time!', color: '#6B7280' };
@@ -45,7 +46,7 @@ export function MatchResultCard({ matchedPairs, onClose }: MatchResultCardProps)
               <h3 className="text-lg text-gray-800">Matched Pairs</h3>
             </div>
             <p className="text-5xl text-center mb-1" style={{ color: rewards.color }}>
-              {matchedPairs} / 4
+              {matchedPairs} / {totalPairs}
             </p>
             <p className="text-sm text-center text-gray-600">Pairs Found</p>
           </div>

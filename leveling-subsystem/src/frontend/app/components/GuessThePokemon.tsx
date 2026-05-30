@@ -1,53 +1,153 @@
-import { useState } from 'react';
-import { PikachuIllustration } from './pokemon-illustrations/PikachuIllustration';
+import { useEffect, useState } from 'react';
 import { HelpCircle, Trophy, TrendingUp, Coins, Star, Volume2, VolumeX } from 'lucide-react';
 import { GuessResultCard } from './GuessResultCard';
+import {
+  playPokemonCry,
+  playSound,
+  preloadPokemonCry,
+  stopPokemonCry,
+} from '../../lib/soundEffects';
+import {
+  GuessRound,
+  formatPokemonName,
+  loadGuessRound,
+  normalizeAnswer,
+} from '../../lib/pokeApiService';
 
 interface GuessThePokemonProps {
   selectedPokemon: {
     name: string;
     level: number;
   } | null;
+  onSaveResult: (input: {
+    game_name: string;
+    result: string;
+    level_gain: number;
+    coins_earned: number;
+  }) => Promise<string>;
 }
 
-export function GuessThePokemon({ selectedPokemon }: GuessThePokemonProps) {
+function renderPokemonImage(round: GuessRound) {
+  return (
+    <img
+      src={round.pokemon.image}
+      alt={round.pokemon.displayName}
+      className="w-full h-full object-contain"
+    />
+  );
+}
+
+export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokemonProps) {
   if (!selectedPokemon) return null;
 
+  const [currentRound, setCurrentRound] = useState<GuessRound | null>(null);
   const [pokemonName, setPokemonName] = useState('');
   const [pokemonType, setPokemonType] = useState('');
   const [counterType, setCounterType] = useState('');
   const [showResult, setShowResult] = useState(false);
   const [score, setScore] = useState(0);
   const [isSoundPlaying, setIsSoundPlaying] = useState(false);
-  const pokemonSoundUrl = 'https://www.youtube.com/embed/WIIufKSuduc?autoplay=1&loop=1&playlist=WIIufKSuduc&controls=0&modestbranding=1&rel=0';
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingRound, setIsLoadingRound] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [isPokemonRevealed, setIsPokemonRevealed] = useState(false);
 
-  // Correct answers for this example
-  const correctAnswers = {
-    name: 'Pikachu',
-    type: 'Electric',
-    counter: 'Ground'
+  const loadRound = async () => {
+    setIsLoadingRound(true);
+    setSaveError('');
+    setIsPokemonRevealed(false);
+
+    try {
+      const nextRound = await loadGuessRound();
+      setCurrentRound(nextRound);
+      preloadPokemonCry(nextRound.pokemon.name).catch(() => undefined);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Unable to load Pokemon round.');
+      playSound('error');
+    } finally {
+      setIsLoadingRound(false);
+    }
   };
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    loadRound();
+
+    return () => {
+      stopPokemonCry();
+    };
+  }, []);
+
+  const getRewards = (currentScore: number) => {
+    if (currentScore >= 8) {
+      return { level_gain: 10, coins_earned: 15 };
+    }
+
+    if (currentScore >= 4) {
+      return { level_gain: 5, coins_earned: 8 };
+    }
+
+    if (currentScore >= 1) {
+      return { level_gain: 1, coins_earned: 3 };
+    }
+
+    return { level_gain: 0, coins_earned: 0 };
+  };
+
+  const handleSubmit = async () => {
+    if (isSaving || !currentRound) return;
+
     let totalScore = 0;
+    const normalizedPokemonName = normalizeAnswer(pokemonName);
+    const normalizedPokemonType = normalizeAnswer(pokemonType);
+    const normalizedCounterType = normalizeAnswer(counterType);
+    const pokemonNameAnswers = [
+      currentRound.pokemon.name,
+      normalizeAnswer(currentRound.pokemon.displayName),
+    ];
 
     // Check Pokemon Name (5 points)
-    if (pokemonName.toLowerCase().trim() === correctAnswers.name.toLowerCase()) {
+    if (pokemonNameAnswers.includes(normalizedPokemonName)) {
       totalScore += 5;
     }
 
     // Check Pokemon Type (3 points)
-    if (pokemonType.toLowerCase().trim() === correctAnswers.type.toLowerCase()) {
+    if (currentRound.pokemon.types.includes(normalizedPokemonType)) {
       totalScore += 3;
     }
 
     // Check Counter Type (2 points)
-    if (counterType.toLowerCase().trim() === correctAnswers.counter.toLowerCase()) {
+    if (currentRound.counterTypes.includes(normalizedCounterType)) {
       totalScore += 2;
     }
 
-    setScore(totalScore);
-    setShowResult(true);
+    const rewards = getRewards(totalScore);
+
+    setIsSaving(true);
+    setSaveError('');
+
+    try {
+      await onSaveResult({
+        game_name: 'Guess That Pokemon',
+        result: `${totalScore}/10 Points: ${currentRound.pokemon.displayName}`,
+        level_gain: rewards.level_gain,
+        coins_earned: rewards.coins_earned,
+      });
+      setIsPokemonRevealed(true);
+      if (totalScore >= 8) {
+        playPokemonCry(currentRound.pokemon.name).catch(() => playSound('victory'));
+      } else if (totalScore > 0) {
+        playSound('success');
+      } else {
+        playSound('defeat');
+      }
+      setScore(totalScore);
+      setShowResult(true);
+    } catch (error) {
+      playSound('error');
+      setSaveError(error instanceof Error ? error.message : 'Unable to save result.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCloseResult = () => {
@@ -56,9 +156,36 @@ export function GuessThePokemon({ selectedPokemon }: GuessThePokemonProps) {
     setPokemonType('');
     setCounterType('');
     setScore(0);
+    setSaveError('');
+    setIsPokemonRevealed(false);
+    loadRound();
   };
 
-  const isFormValid = pokemonName.trim() && pokemonType.trim() && counterType.trim();
+  const handleSoundToggle = async () => {
+    if (isSoundPlaying) {
+      stopPokemonCry();
+      setIsSoundPlaying(false);
+      playSound('back');
+      return;
+    }
+
+    setIsSoundPlaying(true);
+    playSound('mystery');
+
+    try {
+      if (currentRound) {
+        await playPokemonCry(currentRound.pokemon.name);
+      }
+    } catch {
+      playSound('error');
+    } finally {
+      setIsSoundPlaying(false);
+    }
+  };
+
+  const isFormValid = Boolean(
+    currentRound && pokemonName.trim() && pokemonType.trim() && counterType.trim(),
+  );
 
   return (
     <div className="max-w-6xl mx-auto mt-16">
@@ -86,6 +213,10 @@ export function GuessThePokemon({ selectedPokemon }: GuessThePokemonProps) {
           Game Area
         </h2>
 
+        {isLoadingRound && (
+          <p className="text-center text-gray-700 mb-8">Loading Pokemon from PokeAPI...</p>
+        )}
+
         {/* Sound Toggle */}
         <div className="bg-white rounded-3xl p-6 border-4 border-blue-400 shadow-xl mb-10">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -101,41 +232,48 @@ export function GuessThePokemon({ selectedPokemon }: GuessThePokemonProps) {
 
             <button
               type="button"
-              onClick={() => setIsSoundPlaying((playing) => !playing)}
+              onClick={handleSoundToggle}
+              disabled={!currentRound || isLoadingRound}
               className={`inline-flex items-center justify-center gap-3 min-w-44 px-8 py-4 text-xl rounded-full transition-all duration-300 border-4 shadow-lg ${
                 isSoundPlaying
                   ? 'bg-red-500 text-white border-red-700 hover:bg-red-600'
-                  : 'bg-blue-500 text-white border-blue-700 hover:bg-blue-600 hover:scale-105'
+                  : currentRound && !isLoadingRound
+                    ? 'bg-blue-500 text-white border-blue-700 hover:bg-blue-600 hover:scale-105'
+                    : 'bg-gray-300 text-gray-500 border-gray-400 cursor-not-allowed opacity-60'
               }`}
             >
               {isSoundPlaying ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
               {isSoundPlaying ? 'Stop Sound' : 'Play Sound'}
             </button>
           </div>
-
-          {isSoundPlaying && (
-            <iframe
-              className="absolute w-px h-px opacity-0 pointer-events-none"
-              src={pokemonSoundUrl}
-              title="Guess That Pokemon sound"
-              allow="autoplay; encrypted-media"
-            />
-          )}
         </div>
 
         {/* Blurred Pokemon Silhouette */}
         <div className="bg-white rounded-3xl p-8 border-4 border-purple-400 shadow-xl mb-10">
           <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-8 mb-6">
             <div className="max-w-md mx-auto aspect-square flex items-center justify-center">
-              <div className="w-full h-full blur-lg opacity-70">
-                <PikachuIllustration />
-              </div>
+              {currentRound && (
+                <div
+                  className={`w-full h-full transition-all duration-500 ${
+                    isPokemonRevealed ? 'blur-none opacity-100' : 'blur-lg opacity-70'
+                  }`}
+                >
+                  {renderPokemonImage(currentRound)}
+                </div>
+              )}
             </div>
           </div>
 
           <h3 className="text-4xl text-center text-gray-800">
-            Guess the Pokemon
+            {isPokemonRevealed && currentRound
+              ? currentRound.pokemon.displayName
+              : 'Guess the Pokemon'}
           </h3>
+          {isPokemonRevealed && currentRound && (
+            <p className="text-xl text-center text-gray-600 mt-3">
+              {currentRound.pokemon.types.map(formatPokemonName).join(' / ')} Type
+            </p>
+          )}
         </div>
 
         {/* Input Fields */}
@@ -188,16 +326,20 @@ export function GuessThePokemon({ selectedPokemon }: GuessThePokemonProps) {
           <div className="flex justify-center mt-8">
             <button
               onClick={handleSubmit}
-              disabled={!isFormValid}
+              disabled={!isFormValid || isSaving}
               className={`px-20 py-6 text-3xl rounded-full transition-all duration-300 border-6 shadow-2xl ${
                 isFormValid
                   ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white border-blue-700 hover:scale-105 hover:shadow-blue-400/50'
                   : 'bg-gray-300 text-gray-500 border-gray-400 cursor-not-allowed opacity-60'
               }`}
             >
-              Submit Guess
+              {isSaving ? 'Saving...' : 'Submit Guess'}
             </button>
           </div>
+
+          {saveError && (
+            <p className="text-center text-[#EF4444] mt-4 font-medium">{saveError}</p>
+          )}
         </div>
 
         {/* Scoring Section */}
@@ -280,10 +422,16 @@ export function GuessThePokemon({ selectedPokemon }: GuessThePokemonProps) {
 
         {/* Result Card */}
         {showResult && (
+          currentRound && (
           <GuessResultCard
             score={score}
+            pokemonName={currentRound.pokemon.displayName}
+            pokemonTypes={currentRound.pokemon.types.map(formatPokemonName)}
+            counterTypes={currentRound.counterTypes.map(formatPokemonName)}
+            pokemonIllustration={renderPokemonImage(currentRound)}
             onClose={handleCloseResult}
           />
+          )
         )}
       </div>
     </div>

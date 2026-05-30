@@ -1,15 +1,22 @@
 import { useState } from 'react';
 import { Scroll, Trophy, TrendingUp, Coins, Calendar, User, Swords } from 'lucide-react';
 import { BattleSummaryCard } from './BattleSummaryCard';
+import { playSound } from '../../lib/soundEffects';
 
 interface BattleResultLoggerProps {
   selectedPokemon: {
     name: string;
     level: number;
   } | null;
+  onSaveResult: (input: {
+    game_name: string;
+    result: string;
+    level_gain: number;
+    coins_earned: number;
+  }) => Promise<string>;
 }
 
-export function BattleResultLogger({ selectedPokemon }: BattleResultLoggerProps) {
+export function BattleResultLogger({ selectedPokemon, onSaveResult }: BattleResultLoggerProps) {
   if (!selectedPokemon) return null;
 
   const [opponentTrainer, setOpponentTrainer] = useState('');
@@ -17,10 +24,31 @@ export function BattleResultLogger({ selectedPokemon }: BattleResultLoggerProps)
   const [battleDate, setBattleDate] = useState('');
   const [battleResult, setBattleResult] = useState<'Victory' | 'Defeat' | null>(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
-  const handleSubmit = () => {
-    if (opponentTrainer && opponentPokemon && battleDate && battleResult) {
-      setShowSummary(true);
+  const handleSubmit = async () => {
+    if (opponentTrainer && opponentPokemon && battleDate && battleResult && !isSaving) {
+      const isVictory = battleResult === 'Victory';
+
+      setIsSaving(true);
+      setSaveError('');
+
+      try {
+        await onSaveResult({
+          game_name: 'Battle Result Logger',
+          result: battleResult,
+          level_gain: isVictory ? 10 : 0,
+          coins_earned: isVictory ? 15 : 0,
+        });
+        playSound(isVictory ? 'victory' : 'defeat');
+        setShowSummary(true);
+      } catch (error) {
+        playSound('error');
+        setSaveError(error instanceof Error ? error.message : 'Unable to save result.');
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -30,6 +58,7 @@ export function BattleResultLogger({ selectedPokemon }: BattleResultLoggerProps)
     setOpponentPokemon('');
     setBattleDate('');
     setBattleResult(null);
+    setSaveError('');
   };
 
   const isFormValid = opponentTrainer && opponentPokemon && battleDate && battleResult;
@@ -128,7 +157,10 @@ export function BattleResultLogger({ selectedPokemon }: BattleResultLoggerProps)
           <div className="flex gap-8 justify-center mb-6">
             {/* Victory Radio Button */}
             <div
-              onClick={() => setBattleResult('Victory')}
+              onClick={() => {
+                playSound('victory');
+                setBattleResult('Victory');
+              }}
               className={`cursor-pointer transition-all duration-300 ${
                 battleResult === 'Victory'
                   ? 'scale-110'
@@ -155,7 +187,10 @@ export function BattleResultLogger({ selectedPokemon }: BattleResultLoggerProps)
 
             {/* Defeat Radio Button */}
             <div
-              onClick={() => setBattleResult('Defeat')}
+              onClick={() => {
+                playSound('defeat');
+                setBattleResult('Defeat');
+              }}
               className={`cursor-pointer transition-all duration-300 ${
                 battleResult === 'Defeat'
                   ? 'scale-110'
@@ -185,16 +220,20 @@ export function BattleResultLogger({ selectedPokemon }: BattleResultLoggerProps)
           <div className="flex justify-center mt-8">
             <button
               onClick={handleSubmit}
-              disabled={!isFormValid}
+              disabled={!isFormValid || isSaving}
               className={`px-20 py-6 text-3xl rounded-full transition-all duration-300 border-6 shadow-2xl ${
                 isFormValid
                   ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-indigo-700 hover:scale-105 hover:shadow-indigo-400/50'
                   : 'bg-gray-300 text-gray-500 border-gray-400 cursor-not-allowed opacity-60'
               }`}
             >
-              Submit Result
+              {isSaving ? 'Saving...' : 'Submit Result'}
             </button>
           </div>
+
+          {saveError && (
+            <p className="text-center text-[#EF4444] mt-4 font-medium">{saveError}</p>
+          )}
         </div>
 
         {/* Reward Rules */}

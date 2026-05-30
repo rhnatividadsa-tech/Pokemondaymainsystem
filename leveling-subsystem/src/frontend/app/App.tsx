@@ -3,68 +3,149 @@ import { BattlePredictor } from './components/BattlePredictor';
 import { GuessThePokemon } from './components/GuessThePokemon';
 import { MatchThePokemon } from './components/MatchThePokemon';
 import { BattleResultLogger } from './components/BattleResultLogger';
-import { CharmanderIllustration } from './components/pokemon-illustrations/CharmanderIllustration';
-import { SquirtleIllustration } from './components/pokemon-illustrations/SquirtleIllustration';
-import { PikachuIllustration } from './components/pokemon-illustrations/PikachuIllustration';
-import { BulbasaurIllustration } from './components/pokemon-illustrations/BulbasaurIllustration';
-import { Coins, TrendingUp, Swords, HelpCircle, Grid3x3, Scroll, Check, Sparkles } from 'lucide-react';
+import { Coins, TrendingUp, Swords, HelpCircle, Grid3x3, Scroll } from 'lucide-react';
+import {
+  findPlayerByName,
+  loadPlayerPokemon,
+  saveLevelingResult,
+} from '../lib/levelingService';
+import type { PlayerPokemonRecord, PlayerRecord } from '../lib/levelingService';
+import { playSound, playWhosThatPokemon, startBackgroundMusic } from '../lib/soundEffects';
 
 type Screen = 'trainer-name' | 'pokemon-selection' | 'mini-games';
 type Tab = 'battle-predictor' | 'guess-pokemon' | 'match-pokemon' | 'battle-logger';
 
-interface Pokemon {
-  id: number;
+export interface SelectedPokemon extends PlayerPokemonRecord {
   name: string;
-  level: number;
-  coins: number;
-  illustration: JSX.Element;
+}
+
+export interface GameSaveRequest {
+  game_name: string;
+  result: string;
+  level_gain: number;
+  coins_earned: number;
 }
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('trainer-name');
   const [playerName, setPlayerName] = useState('');
-  const [trainerPokemon, setTrainerPokemon] = useState<Pokemon[]>([]);
-  const [selectedPokemon, setSelectedPokemon] = useState<Pokemon | null>(null);
+  const [player, setPlayer] = useState<PlayerRecord | null>(null);
+  const [trainerPokemon, setTrainerPokemon] = useState<SelectedPokemon[]>([]);
+  const [selectedPokemon, setSelectedPokemon] = useState<SelectedPokemon | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('battle-predictor');
+  const [isLoadingPlayer, setIsLoadingPlayer] = useState(false);
+  const [appError, setAppError] = useState('');
+  const [saveMessage, setSaveMessage] = useState('');
 
-  // Mock trainer database
-  const trainerDatabase: Record<string, Pokemon[]> = {
-    'Ash': [
-      { id: 1, name: 'Pikachu', level: 25, coins: 150, illustration: <PikachuIllustration /> },
-      { id: 2, name: 'Charmander', level: 15, coins: 80, illustration: <CharmanderIllustration /> }
-    ],
-    'Misty': [
-      { id: 3, name: 'Squirtle', level: 20, coins: 120, illustration: <SquirtleIllustration /> }
-    ],
-    'Brock': [
-      { id: 4, name: 'Bulbasaur', level: 18, coins: 100, illustration: <BulbasaurIllustration /> }
-    ],
-    'Guest': [
-      { id: 1, name: 'Charmander', level: 15, coins: 100, illustration: <CharmanderIllustration /> },
-      { id: 2, name: 'Squirtle', level: 8, coins: 50, illustration: <SquirtleIllustration /> },
-      { id: 3, name: 'Pikachu', level: 12, coins: 75, illustration: <PikachuIllustration /> },
-      { id: 4, name: 'Bulbasaur', level: 10, coins: 60, illustration: <BulbasaurIllustration /> }
-    ]
+  const handleTrainerNameSubmit = async () => {
+    if (!playerName.trim() || isLoadingPlayer) return;
+
+    startBackgroundMusic();
+    setIsLoadingPlayer(true);
+    setAppError('');
+    setSaveMessage('');
+
+    try {
+      const foundPlayer = await findPlayerByName(playerName);
+      const pokemon = await loadPlayerPokemon(foundPlayer.player_id);
+      const normalizedPokemon = pokemon.map((record) => ({
+        ...record,
+        name: record.pokemon_name,
+      }));
+
+      setPlayer(foundPlayer);
+      setPlayerName(foundPlayer.player_name);
+      setTrainerPokemon(normalizedPokemon);
+      setSelectedPokemon(null);
+      setCurrentScreen('pokemon-selection');
+      playSound('trainer-found');
+    } catch (error) {
+      setPlayer(null);
+      setTrainerPokemon([]);
+      setSelectedPokemon(null);
+      setAppError(error instanceof Error ? error.message : 'Unable to load player.');
+      playSound('error');
+    } finally {
+      setIsLoadingPlayer(false);
+    }
   };
 
-  const handleTrainerNameSubmit = () => {
-    if (!playerName.trim()) return;
-
-    // Load trainer data
-    const pokemon = trainerDatabase[playerName] || trainerDatabase['Guest'];
-    setTrainerPokemon(pokemon);
-    setCurrentScreen('pokemon-selection');
-  };
-
-  const handlePokemonSelect = (pokemon: Pokemon) => {
+  const handlePokemonSelect = (pokemon: SelectedPokemon) => {
+    startBackgroundMusic();
+    playSound('select-pokemon');
     setSelectedPokemon(pokemon);
     setCurrentScreen('mini-games');
     setActiveTab('battle-predictor');
+    setSaveMessage('');
   };
 
   const handleBackToPokemonSelection = () => {
+    playSound('back');
     setSelectedPokemon(null);
     setCurrentScreen('pokemon-selection');
+    setSaveMessage('');
+  };
+
+  const handleSaveLevelingResult = async (resultInput: GameSaveRequest) => {
+    if (!player || !selectedPokemon) {
+      throw new Error('Select a player and Pokemon before saving a result.');
+    }
+
+    const message = await saveLevelingResult({
+      player_id: player.player_id,
+      pokedex_id: selectedPokemon.pokedex_id,
+      pokemon_id: selectedPokemon.pokemon_id,
+      game_name: resultInput.game_name,
+      result: resultInput.result,
+      level_gain: resultInput.level_gain,
+      coins_earned: resultInput.coins_earned,
+      source_system: 'leveling_subsystem',
+    });
+
+    const updatedLevel = Math.min(100, selectedPokemon.level + resultInput.level_gain);
+    const updatedPokemon = { ...selectedPokemon, level: updatedLevel };
+
+    setSelectedPokemon(updatedPokemon);
+    setTrainerPokemon((pokemonList) =>
+      pokemonList.map((pokemon) =>
+        pokemon.pokedex_id === selectedPokemon.pokedex_id ? updatedPokemon : pokemon,
+      ),
+    );
+    setPlayer((currentPlayer) =>
+      currentPlayer
+        ? {
+            ...currentPlayer,
+            coin_balance: currentPlayer.coin_balance + resultInput.coins_earned,
+          }
+        : currentPlayer,
+    );
+    setSaveMessage(message);
+    playSound(resultInput.level_gain > 0 || resultInput.coins_earned > 0 ? 'reward' : 'success');
+
+    return message;
+  };
+
+  const renderPokemonImage = (pokemon: SelectedPokemon) => {
+    if (pokemon.image) {
+      return (
+        <img
+          src={pokemon.image}
+          alt={pokemon.pokemon_name}
+          className="w-full h-full object-contain"
+        />
+      );
+    }
+
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-24 h-24 rounded-full mx-auto mb-3 bg-gradient-to-br from-[#FBBF24] to-[#2563EB] flex items-center justify-center text-white text-4xl font-bold">
+            {pokemon.pokemon_name.charAt(0)}
+          </div>
+          <p className="text-sm text-gray-600">{pokemon.pokemon_name}</p>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -118,22 +199,32 @@ export default function App() {
                   placeholder="Enter Trainer Name"
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleTrainerNameSubmit()}
+                  onKeyDown={(e) => e.key === 'Enter' && handleTrainerNameSubmit()}
                   className="px-6 py-3 text-lg border-3 border-[#FBBF24] rounded-2xl focus:outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 bg-white shadow-md"
                 />
                 <button
                   onClick={handleTrainerNameSubmit}
+                  disabled={isLoadingPlayer}
                   className="px-8 py-3 text-lg bg-[#2563EB] text-white hover:bg-blue-700 border-2 border-[#2563EB] rounded-2xl transition-all duration-200 font-medium"
                 >
-                  Continue
+                  {isLoadingPlayer ? 'Loading...' : 'Continue'}
                 </button>
               </div>
+            )}
+
+            {appError && (
+              <p className="text-center text-[#EF4444] mt-4 font-medium relative z-10">
+                {appError}
+              </p>
             )}
 
             {currentScreen !== 'trainer-name' && (
               <div className="text-center">
                 <p className="text-xl text-gray-700 relative z-10">
-                  Trainer: <span className="font-bold text-[#2563EB]">{playerName || 'Guest'}</span>
+                  Trainer: <span className="font-bold text-[#2563EB]">{player?.player_name}</span>
+                </p>
+                <p className="text-lg text-gray-700 relative z-10 mt-2">
+                  Coins: <span className="font-bold text-[#FBBF24]">{player?.coin_balance ?? 0}</span>
                 </p>
               </div>
             )}
@@ -183,17 +274,20 @@ export default function App() {
             }`}>
               {trainerPokemon.map((pokemon) => (
                 <div
-                  key={pokemon.id}
+                  key={pokemon.pokedex_id}
                   onClick={() => handlePokemonSelect(pokemon)}
                   className="relative bg-white rounded-2xl p-6 transition-all duration-300 cursor-pointer border-3 border-gray-200 hover:border-[#2563EB] shadow-lg hover:shadow-xl hover:-translate-y-1"
                 >
                   {/* Pokemon Illustration */}
                   <div className="relative mb-4 rounded-2xl overflow-hidden aspect-square p-4 bg-[#F8FAFC]">
-                    {pokemon.illustration}
+                    {renderPokemonImage(pokemon)}
                   </div>
 
                   {/* Pokemon Name */}
-                  <h3 className="text-2xl text-center mb-3 text-gray-800 font-medium">{pokemon.name}</h3>
+                  <h3 className="text-2xl text-center mb-3 text-gray-800 font-medium">{pokemon.pokemon_name}</h3>
+                  {pokemon.type && (
+                    <p className="text-sm text-center text-gray-600 mb-3">{pokemon.type}</p>
+                  )}
 
                   {/* Current Level and Coins */}
                   <div className="flex flex-col gap-2 mb-4">
@@ -206,7 +300,7 @@ export default function App() {
                     <div className="flex justify-center">
                       <div className="inline-flex items-center gap-2 bg-gradient-to-r from-[#FBBF24] to-[#EF4444] text-white px-4 py-2 rounded-full shadow-md">
                         <Coins className="w-4 h-4" />
-                        <span className="text-sm font-medium">{pokemon.coins} Coins</span>
+                        <span className="text-sm font-medium">{player?.coin_balance ?? 0} Coins</span>
                       </div>
                     </div>
                   </div>
@@ -224,6 +318,12 @@ export default function App() {
                 </div>
               ))}
             </div>
+
+            {trainerPokemon.length === 0 && (
+              <p className="text-center text-gray-700 relative z-10">
+                No Pokemon found for this player.
+              </p>
+            )}
           </div>
         )}
 
@@ -238,7 +338,7 @@ export default function App() {
               <div className="flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-6">
                   <div className="text-2xl font-bold text-gray-800">
-                    {selectedPokemon.name}
+                    {selectedPokemon.pokemon_name}
                   </div>
                   <div className="flex items-center gap-2 bg-gradient-to-r from-[#2563EB] to-[#8B5CF6] text-white px-4 py-2 rounded-full shadow-md">
                     <TrendingUp className="w-5 h-5" />
@@ -246,7 +346,7 @@ export default function App() {
                   </div>
                   <div className="flex items-center gap-2 bg-gradient-to-r from-[#FBBF24] to-[#EF4444] text-white px-4 py-2 rounded-full shadow-md">
                     <Coins className="w-5 h-5" />
-                    <span className="font-medium">{selectedPokemon.coins} Coins</span>
+                    <span className="font-medium">{player?.coin_balance ?? 0} Coins</span>
                   </div>
                 </div>
                 <button
@@ -271,7 +371,24 @@ export default function App() {
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
+                      onClick={() => {
+                        if (activeTab !== tab.id) {
+                          const tabSound = {
+                            'battle-predictor': 'tab-battle',
+                            'guess-pokemon': 'tab-guess',
+                            'match-pokemon': 'tab-match',
+                            'battle-logger': 'tab-logger',
+                          } as const;
+
+                          playSound(tabSound[tab.id]);
+
+                          if (tab.id === 'guess-pokemon') {
+                            playWhosThatPokemon();
+                          }
+                        }
+
+                        setActiveTab(tab.id);
+                      }}
                       className={`relative rounded-2xl p-4 transition-all duration-300 ${
                         isActive
                           ? 'bg-gradient-to-br shadow-lg scale-105'
@@ -316,17 +433,20 @@ export default function App() {
 
             {/* Tab Content */}
             <div className="mt-6">
+              {saveMessage && (
+                <p className="text-center text-white font-medium mb-4">{saveMessage}</p>
+              )}
               {activeTab === 'battle-predictor' && (
-                <BattlePredictor selectedPokemon={selectedPokemon} />
+                <BattlePredictor selectedPokemon={selectedPokemon} onSaveResult={handleSaveLevelingResult} />
               )}
               {activeTab === 'guess-pokemon' && (
-                <GuessThePokemon selectedPokemon={selectedPokemon} />
+                <GuessThePokemon selectedPokemon={selectedPokemon} onSaveResult={handleSaveLevelingResult} />
               )}
               {activeTab === 'match-pokemon' && (
-                <MatchThePokemon selectedPokemon={selectedPokemon} />
+                <MatchThePokemon selectedPokemon={selectedPokemon} onSaveResult={handleSaveLevelingResult} />
               )}
               {activeTab === 'battle-logger' && (
-                <BattleResultLogger selectedPokemon={selectedPokemon} />
+                <BattleResultLogger selectedPokemon={selectedPokemon} onSaveResult={handleSaveLevelingResult} />
               )}
             </div>
           </>

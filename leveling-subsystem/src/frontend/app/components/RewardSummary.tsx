@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Trophy, TrendingUp, Coins, Sparkles, Star, ArrowRight, Home } from 'lucide-react';
 
 interface RewardSummaryProps {
@@ -7,6 +6,8 @@ interface RewardSummaryProps {
     name: string;
     level: number;
   } | null;
+  coinBalance?: number;
+  gameHistory?: GameRecord[];
 }
 
 interface GameRecord {
@@ -17,16 +18,13 @@ interface GameRecord {
   coinsEarned: number;
 }
 
-export function RewardSummary({ playerName, selectedPokemon }: RewardSummaryProps) {
+export function RewardSummary({
+  playerName,
+  selectedPokemon,
+  coinBalance = 0,
+  gameHistory = [],
+}: RewardSummaryProps) {
   if (!selectedPokemon) return null;
-
-  // Example game history - in a real app this would be tracked from actual gameplay
-  const [gameHistory] = useState<GameRecord[]>([
-    { id: 1, miniGame: 'Battle Predictor', result: 'Correct', levelsEarned: 10, coinsEarned: 15 },
-    { id: 2, miniGame: 'Guess That Pokemon', result: '8/10 Points', levelsEarned: 10, coinsEarned: 15 },
-    { id: 3, miniGame: 'Match That Pokemon', result: '4 Pairs', levelsEarned: 10, coinsEarned: 15 },
-    { id: 4, miniGame: 'Battle Result Logger', result: 'Victory', levelsEarned: 10, coinsEarned: 15 }
-  ]);
 
   const totalLevelsEarned = gameHistory.reduce((sum, record) => sum + record.levelsEarned, 0);
   const totalCoinsEarned = gameHistory.reduce((sum, record) => sum + record.coinsEarned, 0);
@@ -34,7 +32,7 @@ export function RewardSummary({ playerName, selectedPokemon }: RewardSummaryProp
   const previousLevel = selectedPokemon.level;
   const currentLevel = previousLevel + totalLevelsEarned;
 
-  const previousCoins = 100; // Starting coins
+  const previousCoins = coinBalance - totalCoinsEarned;
   const currentCoins = previousCoins + totalCoinsEarned;
 
   // XP Progress calculation (example: 80% to next level)
