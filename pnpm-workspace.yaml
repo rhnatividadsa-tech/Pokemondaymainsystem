@@ -2,3 +2,5 @@ packages:
   - main-system
   - catching-subsystem
   - leveling-subsystem
+allowBuilds:
+  esbuild: true
