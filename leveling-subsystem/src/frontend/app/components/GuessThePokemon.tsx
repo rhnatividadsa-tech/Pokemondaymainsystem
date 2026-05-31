@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { HelpCircle, Trophy, TrendingUp, Coins, Star, Volume2, VolumeX } from 'lucide-react';
+import { HelpCircle, Trophy, TrendingUp, Coins, Star, Volume2, VolumeX, Play } from 'lucide-react';
 import { GuessResultCard } from './GuessResultCard';
 import {
   playPokemonCry,
   playSound,
+  playWhosThatPokemon,
   preloadPokemonCry,
   stopPokemonCry,
 } from '../../lib/soundEffects';
@@ -11,8 +12,36 @@ import {
   GuessRound,
   formatPokemonName,
   loadGuessRound,
-  normalizeAnswer,
+  loadRandomPokemon,
 } from '../../lib/pokeApiService';
+
+type GuessQuestionType = 'name' | 'type';
+
+interface GuessChoice {
+  value: string;
+  label: string;
+}
+
+const TYPE_CHOICES = [
+  'normal',
+  'fire',
+  'water',
+  'electric',
+  'grass',
+  'ice',
+  'fighting',
+  'poison',
+  'ground',
+  'flying',
+  'psychic',
+  'bug',
+  'rock',
+  'ghost',
+  'dragon',
+  'dark',
+  'steel',
+  'fairy',
+];
 
 interface GuessThePokemonProps {
   selectedPokemon: {
@@ -37,13 +66,25 @@ function renderPokemonImage(round: GuessRound) {
   );
 }
 
+function shuffleChoices<T>(choices: T[]) {
+  return [...choices].sort(() => Math.random() - 0.5);
+}
+
+function formatTypeCombo(types: string[]) {
+  return types.map(formatPokemonName).join(' / ');
+}
+
+function getRandomQuestionType(): GuessQuestionType {
+  return Math.random() > 0.5 ? 'name' : 'type';
+}
+
 export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokemonProps) {
   if (!selectedPokemon) return null;
 
   const [currentRound, setCurrentRound] = useState<GuessRound | null>(null);
-  const [pokemonName, setPokemonName] = useState('');
-  const [pokemonType, setPokemonType] = useState('');
-  const [counterType, setCounterType] = useState('');
+  const [questionType, setQuestionType] = useState<GuessQuestionType>('name');
+  const [choices, setChoices] = useState<GuessChoice[]>([]);
+  const [selectedChoice, setSelectedChoice] = useState('');
   const [showResult, setShowResult] = useState(false);
   const [score, setScore] = useState(0);
   const [isSoundPlaying, setIsSoundPlaying] = useState(false);
@@ -51,15 +92,70 @@ export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokem
   const [isLoadingRound, setIsLoadingRound] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [isPokemonRevealed, setIsPokemonRevealed] = useState(false);
+  const [isGameStarted, setIsGameStarted] = useState(false);
 
   const loadRound = async () => {
     setIsLoadingRound(true);
     setSaveError('');
     setIsPokemonRevealed(false);
+    setIsGameStarted(false);
+    setIsSoundPlaying(false);
+    stopPokemonCry();
 
     try {
       const nextRound = await loadGuessRound();
+      const nextQuestionType = getRandomQuestionType();
+      const distractorPokemon = await loadRandomPokemon(8);
+      const correctChoice =
+        nextQuestionType === 'name'
+          ? {
+              value: nextRound.pokemon.name,
+              label: nextRound.pokemon.displayName,
+            }
+          : {
+              value: nextRound.pokemon.types.join('/'),
+              label: formatTypeCombo(nextRound.pokemon.types),
+            };
+      const distractorChoices = distractorPokemon
+        .filter((pokemon) => pokemon.id !== nextRound.pokemon.id)
+        .map((pokemon) =>
+          nextQuestionType === 'name'
+            ? {
+                value: pokemon.name,
+                label: pokemon.displayName,
+              }
+            : {
+                value: pokemon.types.join('/'),
+                label: formatTypeCombo(pokemon.types),
+              },
+        )
+        .filter((choice) => choice.value !== correctChoice.value)
+        .filter(
+          (choice, index, allChoices) =>
+            allChoices.findIndex((candidate) => candidate.value === choice.value) === index,
+        )
+        .slice(0, 3);
+      const fallbackTypeChoices =
+        nextQuestionType === 'type'
+          ? TYPE_CHOICES.map((type) => ({
+              value: type,
+              label: formatPokemonName(type),
+            })).filter((choice) => choice.value !== correctChoice.value)
+          : [];
+      const finalDistractorChoices = shuffleChoices([
+        ...distractorChoices,
+        ...fallbackTypeChoices,
+      ])
+        .filter(
+          (choice, index, allChoices) =>
+            allChoices.findIndex((candidate) => candidate.value === choice.value) === index,
+        )
+        .slice(0, 3);
+
       setCurrentRound(nextRound);
+      setQuestionType(nextQuestionType);
+      setChoices(shuffleChoices([correctChoice, ...finalDistractorChoices]).slice(0, 4));
+      setSelectedChoice('');
       preloadPokemonCry(nextRound.pokemon.name).catch(() => undefined);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Unable to load Pokemon round.');
@@ -94,31 +190,11 @@ export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokem
   };
 
   const handleSubmit = async () => {
-    if (isSaving || !currentRound) return;
+    if (isSaving || !currentRound || !isGameStarted) return;
 
-    let totalScore = 0;
-    const normalizedPokemonName = normalizeAnswer(pokemonName);
-    const normalizedPokemonType = normalizeAnswer(pokemonType);
-    const normalizedCounterType = normalizeAnswer(counterType);
-    const pokemonNameAnswers = [
-      currentRound.pokemon.name,
-      normalizeAnswer(currentRound.pokemon.displayName),
-    ];
-
-    // Check Pokemon Name (5 points)
-    if (pokemonNameAnswers.includes(normalizedPokemonName)) {
-      totalScore += 5;
-    }
-
-    // Check Pokemon Type (3 points)
-    if (currentRound.pokemon.types.includes(normalizedPokemonType)) {
-      totalScore += 3;
-    }
-
-    // Check Counter Type (2 points)
-    if (currentRound.counterTypes.includes(normalizedCounterType)) {
-      totalScore += 2;
-    }
+    const correctAnswer =
+      questionType === 'name' ? currentRound.pokemon.name : currentRound.pokemon.types.join('/');
+    const totalScore = selectedChoice === correctAnswer ? 10 : 0;
 
     const rewards = getRewards(totalScore);
 
@@ -152,16 +228,28 @@ export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokem
 
   const handleCloseResult = () => {
     setShowResult(false);
-    setPokemonName('');
-    setPokemonType('');
-    setCounterType('');
+    setSelectedChoice('');
+    setChoices([]);
     setScore(0);
     setSaveError('');
     setIsPokemonRevealed(false);
+    setIsGameStarted(false);
     loadRound();
   };
 
+  const handleStartGame = async () => {
+    if (!currentRound || isLoadingRound || isGameStarted) return;
+
+    setSaveError('');
+    setIsPokemonRevealed(false);
+    setIsGameStarted(true);
+    playSound('choice');
+    await playWhosThatPokemon();
+  };
+
   const handleSoundToggle = async () => {
+    if (!isGameStarted) return;
+
     if (isSoundPlaying) {
       stopPokemonCry();
       setIsSoundPlaying(false);
@@ -184,8 +272,9 @@ export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokem
   };
 
   const isFormValid = Boolean(
-    currentRound && pokemonName.trim() && pokemonType.trim() && counterType.trim(),
+    currentRound && isGameStarted && choices.length === 4 && selectedChoice,
   );
+  const canStartGame = Boolean(currentRound && !isLoadingRound && !isGameStarted);
 
   return (
     <div className="max-w-6xl mx-auto mt-16">
@@ -217,6 +306,39 @@ export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokem
           <p className="text-center text-gray-700 mb-8">Loading Pokemon from PokeAPI...</p>
         )}
 
+        {/* Start Game */}
+        <div className="bg-white rounded-3xl p-6 border-4 border-yellow-400 shadow-xl mb-10">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3 text-center sm:text-left">
+              <div className="w-14 h-14 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center">
+                <Play className="w-8 h-8" />
+              </div>
+              <div>
+                <h3 className="text-2xl text-gray-800">Start Game</h3>
+                <p className="text-lg text-gray-600">
+                  Start the round to unlock the picture, clue, and guess form
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleStartGame}
+              disabled={!canStartGame}
+              className={`inline-flex items-center justify-center gap-3 min-w-44 px-8 py-4 text-xl rounded-full transition-all duration-300 border-4 shadow-lg ${
+                canStartGame
+                  ? 'bg-yellow-400 text-gray-900 border-yellow-600 hover:bg-yellow-500 hover:scale-105'
+                  : isGameStarted
+                    ? 'bg-green-500 text-white border-green-700'
+                    : 'bg-gray-300 text-gray-500 border-gray-400 cursor-not-allowed opacity-60'
+              }`}
+            >
+              <Play className="w-6 h-6" />
+              {isGameStarted ? 'Game Started' : 'Start Game'}
+            </button>
+          </div>
+        </div>
+
         {/* Sound Toggle */}
         <div className="bg-white rounded-3xl p-6 border-4 border-blue-400 shadow-xl mb-10">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -226,18 +348,22 @@ export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokem
               </div>
               <div>
                 <h3 className="text-2xl text-gray-800">Pokemon Sound</h3>
-                <p className="text-lg text-gray-600">Play the sound clue for this round</p>
+                <p className="text-lg text-gray-600">
+                  {isGameStarted
+                    ? 'Play the sound clue for this round'
+                    : 'Press Start Game to unlock the sound clue'}
+                </p>
               </div>
             </div>
 
             <button
               type="button"
               onClick={handleSoundToggle}
-              disabled={!currentRound || isLoadingRound}
+              disabled={!currentRound || isLoadingRound || !isGameStarted}
               className={`inline-flex items-center justify-center gap-3 min-w-44 px-8 py-4 text-xl rounded-full transition-all duration-300 border-4 shadow-lg ${
                 isSoundPlaying
                   ? 'bg-red-500 text-white border-red-700 hover:bg-red-600'
-                  : currentRound && !isLoadingRound
+                  : currentRound && !isLoadingRound && isGameStarted
                     ? 'bg-blue-500 text-white border-blue-700 hover:bg-blue-600 hover:scale-105'
                     : 'bg-gray-300 text-gray-500 border-gray-400 cursor-not-allowed opacity-60'
               }`}
@@ -252,13 +378,17 @@ export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokem
         <div className="bg-white rounded-3xl p-8 border-4 border-purple-400 shadow-xl mb-10">
           <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-8 mb-6">
             <div className="max-w-md mx-auto aspect-square flex items-center justify-center">
-              {currentRound && (
+              {currentRound && isGameStarted ? (
                 <div
                   className={`w-full h-full transition-all duration-500 ${
                     isPokemonRevealed ? 'blur-none opacity-100' : 'blur-lg opacity-70'
                   }`}
                 >
                   {renderPokemonImage(currentRound)}
+                </div>
+              ) : (
+                <div className="w-full h-full rounded-2xl border-4 border-dashed border-purple-200 flex items-center justify-center text-center px-8">
+                  <p className="text-2xl text-gray-500">Press Start Game</p>
                 </div>
               )}
             </div>
@@ -276,50 +406,58 @@ export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokem
           )}
         </div>
 
-        {/* Input Fields */}
+        {/* Multiple Choice Answers */}
         <div className="bg-white rounded-3xl p-8 border-4 border-blue-400 shadow-xl mb-10">
-          <div className="grid gap-6 max-w-2xl mx-auto">
-            {/* Pokemon Name Input */}
-            <div>
-              <label className="block text-2xl text-gray-700 mb-3">
-                Pokemon Name
-              </label>
-              <input
-                type="text"
-                value={pokemonName}
-                onChange={(e) => setPokemonName(e.target.value)}
-                placeholder="Enter Pokemon name..."
-                className="w-full px-6 py-4 text-xl border-4 border-gray-300 rounded-full focus:outline-none focus:border-blue-500 shadow-md"
-              />
+          <div className="max-w-3xl mx-auto">
+            <div className="text-center mb-6">
+              <p className="text-lg text-gray-600 mb-2">Choose the correct answer</p>
+              <h3 className="text-3xl text-gray-800">
+                {questionType === 'name'
+                  ? 'What is this Pokemon named?'
+                  : 'What type is this Pokemon?'}
+              </h3>
             </div>
 
-            {/* Pokemon Type Input */}
-            <div>
-              <label className="block text-2xl text-gray-700 mb-3">
-                Pokemon Type
-              </label>
-              <input
-                type="text"
-                value={pokemonType}
-                onChange={(e) => setPokemonType(e.target.value)}
-                placeholder="Enter Pokemon type..."
-                className="w-full px-6 py-4 text-xl border-4 border-gray-300 rounded-full focus:outline-none focus:border-blue-500 shadow-md"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {isGameStarted
+                ? choices.map((choice) => {
+                    const isSelected = selectedChoice === choice.value;
+
+                    return (
+                      <button
+                        key={choice.value}
+                        type="button"
+                        onClick={() => {
+                          setSelectedChoice(choice.value);
+                          playSound('choice');
+                        }}
+                        className={`min-h-24 px-6 py-4 rounded-2xl border-4 text-2xl shadow-lg transition-all duration-200 ${
+                          isSelected
+                            ? 'bg-blue-500 text-white border-blue-700 scale-[1.02]'
+                            : 'bg-white text-gray-800 border-gray-300 hover:border-blue-500 hover:bg-blue-50'
+                        }`}
+                      >
+                        {choice.label}
+                      </button>
+                    );
+                  })
+                : Array.from({ length: 4 }).map((_, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      disabled
+                      className="min-h-24 px-6 py-4 rounded-2xl border-4 text-2xl shadow-lg bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed"
+                    >
+                      Choice {index + 1}
+                    </button>
+                  ))}
             </div>
 
-            {/* Counter Type Input */}
-            <div>
-              <label className="block text-2xl text-gray-700 mb-3">
-                Counter Type
-              </label>
-              <input
-                type="text"
-                value={counterType}
-                onChange={(e) => setCounterType(e.target.value)}
-                placeholder="Enter counter type..."
-                className="w-full px-6 py-4 text-xl border-4 border-gray-300 rounded-full focus:outline-none focus:border-blue-500 shadow-md"
-              />
-            </div>
+            {!isGameStarted && (
+              <p className="text-center text-gray-500 mt-5">
+                Press Start Game to reveal the answer choices.
+              </p>
+            )}
           </div>
 
           {/* Submit Button */}
@@ -342,27 +480,22 @@ export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokem
           )}
         </div>
 
-        {/* Scoring Section */}
+        {/* Question Rules */}
         <div className="bg-white rounded-3xl p-8 border-4 border-yellow-400 shadow-xl mb-10">
           <div className="flex items-center justify-center gap-3 mb-6">
             <Star className="w-10 h-10 text-yellow-600" />
-            <h3 className="text-3xl text-gray-800">Scoring</h3>
+            <h3 className="text-3xl text-gray-800">Question Rules</h3>
           </div>
 
-          <div className="grid grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-2 gap-6 mb-8">
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 border-2 border-blue-300 text-center">
-              <p className="text-xl text-gray-700 mb-2">Pokemon Name</p>
-              <p className="text-4xl text-blue-600">5 Points</p>
+              <p className="text-xl text-gray-700 mb-2">Question Changes</p>
+              <p className="text-3xl text-blue-600">Name or Type</p>
             </div>
 
             <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-6 border-2 border-purple-300 text-center">
-              <p className="text-xl text-gray-700 mb-2">Pokemon Type</p>
-              <p className="text-4xl text-purple-600">3 Points</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-2xl p-6 border-2 border-pink-300 text-center">
-              <p className="text-xl text-gray-700 mb-2">Counter Type</p>
-              <p className="text-4xl text-pink-600">2 Points</p>
+              <p className="text-xl text-gray-700 mb-2">Answer Choices</p>
+              <p className="text-3xl text-purple-600">Pick 1 of 4</p>
             </div>
           </div>
         </div>
@@ -376,7 +509,7 @@ export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokem
 
           <div className="grid grid-cols-2 gap-6">
             <div className="bg-white rounded-2xl p-6 border-2 border-green-400 shadow-lg">
-              <p className="text-2xl text-gray-800 mb-3">8-10 Points:</p>
+              <p className="text-2xl text-gray-800 mb-3">Correct Answer:</p>
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="w-6 h-6 text-blue-600" />
                 <span className="text-xl text-blue-600">+10 Levels</span>
@@ -387,32 +520,8 @@ export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokem
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-6 border-2 border-blue-400 shadow-lg">
-              <p className="text-2xl text-gray-800 mb-3">4-7 Points:</p>
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-6 h-6 text-blue-600" />
-                <span className="text-xl text-blue-600">+5 Levels</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Coins className="w-6 h-6 text-yellow-600" />
-                <span className="text-xl text-yellow-600">+8 Coins</span>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl p-6 border-2 border-yellow-400 shadow-lg">
-              <p className="text-2xl text-gray-800 mb-3">1-3 Points:</p>
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-6 h-6 text-blue-600" />
-                <span className="text-xl text-blue-600">+1 Level</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Coins className="w-6 h-6 text-yellow-600" />
-                <span className="text-xl text-yellow-600">+3 Coins</span>
-              </div>
-            </div>
-
             <div className="bg-white rounded-2xl p-6 border-2 border-gray-400 shadow-lg">
-              <p className="text-2xl text-gray-800 mb-3">0 Points:</p>
+              <p className="text-2xl text-gray-800 mb-3">Wrong Answer:</p>
               <div className="flex items-center gap-2">
                 <span className="text-xl text-gray-600">No Reward</span>
               </div>
@@ -427,7 +536,6 @@ export function GuessThePokemon({ selectedPokemon, onSaveResult }: GuessThePokem
             score={score}
             pokemonName={currentRound.pokemon.displayName}
             pokemonTypes={currentRound.pokemon.types.map(formatPokemonName)}
-            counterTypes={currentRound.counterTypes.map(formatPokemonName)}
             pokemonIllustration={renderPokemonImage(currentRound)}
             onClose={handleCloseResult}
           />

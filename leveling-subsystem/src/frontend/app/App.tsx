@@ -8,12 +8,13 @@ import {
   findPlayerByName,
   loadPlayerPokemon,
   saveLevelingResult,
-} from '../lib/levelingService';
-import type { PlayerPokemonRecord, PlayerRecord } from '../lib/levelingService';
-import { playSound, playWhosThatPokemon, startBackgroundMusic } from '../lib/soundEffects';
+} from '../../backend/levelingService';
+import type { PlayerPokemonRecord, PlayerRecord } from '../../backend/levelingService';
+import { playSound, startBackgroundMusic } from '../lib/soundEffects';
 
 type Screen = 'trainer-name' | 'pokemon-selection' | 'mini-games';
 type Tab = 'battle-predictor' | 'guess-pokemon' | 'match-pokemon' | 'battle-logger';
+const OWNED_POKEMON_SOURCES = ['main_system', 'starter'];
 
 export interface SelectedPokemon extends PlayerPokemonRecord {
   name: string;
@@ -48,10 +49,17 @@ export default function App() {
     try {
       const foundPlayer = await findPlayerByName(playerName);
       const pokemon = await loadPlayerPokemon(foundPlayer.player_id);
-      const normalizedPokemon = pokemon.map((record) => ({
-        ...record,
-        name: record.pokemon_name,
-      }));
+      const normalizedPokemon = pokemon
+        .filter(
+          (record) =>
+            record.player_id === foundPlayer.player_id &&
+            record.status?.toLowerCase() === 'active' &&
+            OWNED_POKEMON_SOURCES.includes(record.source?.toLowerCase() ?? ''),
+        )
+        .map((record) => ({
+          ...record,
+          name: record.pokemon_name,
+        }));
 
       setPlayer(foundPlayer);
       setPlayerName(foundPlayer.player_name);
@@ -382,9 +390,6 @@ export default function App() {
 
                           playSound(tabSound[tab.id]);
 
-                          if (tab.id === 'guess-pokemon') {
-                            playWhosThatPokemon();
-                          }
                         }
 
                         setActiveTab(tab.id);

@@ -53,6 +53,8 @@ interface PlayerPokedexRow {
     | null;
 }
 
+const OWNED_POKEMON_SOURCES = ['main_system', 'Starter', 'starter'];
+
 function requireText(value: string | undefined, fieldName: string) {
   if (!value || !value.trim()) {
     throw new Error(`${fieldName} is required.`);
@@ -114,7 +116,7 @@ export async function loadPlayerPokemon(playerId: string): Promise<PlayerPokemon
         level,
         source,
         status,
-        pokemon (
+        pokemon!inner (
           pokemon_name,
           type,
           region,
@@ -123,6 +125,8 @@ export async function loadPlayerPokemon(playerId: string): Promise<PlayerPokemon
       `,
     )
     .eq('player_id', playerId)
+    .ilike('status', 'active')
+    .in('source', OWNED_POKEMON_SOURCES)
     .order('id', { ascending: true });
 
   if (error) {
@@ -177,6 +181,8 @@ export async function saveLevelingResult(input: SaveLevelingResultInput): Promis
     .eq('id', input.pokedex_id)
     .eq('player_id', input.player_id)
     .eq('pokemon_id', input.pokemon_id)
+    .ilike('status', 'active')
+    .in('source', OWNED_POKEMON_SOURCES)
     .single();
 
   if (pokedexReadError) {
@@ -187,13 +193,21 @@ export async function saveLevelingResult(input: SaveLevelingResultInput): Promis
   const nextLevel = Math.min(100, currentLevel + levelGain);
   const appliedLevelGain = Math.max(0, nextLevel - currentLevel);
 
-  const { error: pokedexUpdateError } = await supabase
+  const { error: pokedexUpdateError, count: updatedPokemonCount } = await supabase
     .from('player_pokemon')
-    .update({ level: nextLevel })
-    .eq('id', input.pokedex_id);
+    .update({ level: nextLevel }, { count: 'exact' })
+    .eq('id', input.pokedex_id)
+    .eq('player_id', input.player_id)
+    .eq('pokemon_id', input.pokemon_id)
+    .ilike('status', 'active')
+    .in('source', OWNED_POKEMON_SOURCES);
 
   if (pokedexUpdateError) {
     throw new Error(pokedexUpdateError.message);
+  }
+
+  if (updatedPokemonCount === 0) {
+    throw new Error('Selected Pokemon is not owned by this player.');
   }
 
   const { error: historyInsertError } = await supabase.from('game_logs').insert({
