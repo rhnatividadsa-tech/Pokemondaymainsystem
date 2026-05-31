@@ -682,16 +682,75 @@ function StarterScreen({
 }
 
 function PokedexScreen({ ownedPokemon }: { ownedPokemon: OwnedPokemon[] }) {
-  const ownedIds = new Set(ownedPokemon.map(owned => owned.pokemonDataId));
+  const [caughtPokemon, setCaughtPokemon] = useState<PokemonData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchPokemon() {
+      try {
+        const ownedIds = Array.from(new Set(ownedPokemon.map(owned => owned.pokemonDataId)));
+        
+        const fetchedData = await Promise.all(
+          ownedIds.map(async (idStr) => {
+            const numId = parseInt(idStr, 10);
+            const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${numId}`);
+            if (!response.ok) throw new Error('Failed to fetch');
+            const data = await response.json();
+            
+            const typeName = data.types[0].type.name;
+            const capitalizedType = typeName.charAt(0).toUpperCase() + typeName.slice(1);
+            const capitalizedName = data.name.charAt(0).toUpperCase() + data.name.slice(1);
+            
+            let region = 'Unknown';
+            if (numId <= 151) region = 'Kanto';
+            else if (numId <= 251) region = 'Johto';
+            else if (numId <= 386) region = 'Hoenn';
+            else if (numId <= 493) region = 'Sinnoh';
+            else if (numId <= 649) region = 'Unova';
+            else if (numId <= 721) region = 'Kalos';
+            else if (numId <= 809) region = 'Alola';
+            else if (numId <= 898) region = 'Galar';
+            else region = 'Paldea';
+
+            return {
+              id: idStr,
+              name: capitalizedName,
+              type: capitalizedType,
+              region: region,
+              spriteId: numId,
+              evolutionStage: 1,
+            } as PokemonData;
+          })
+        );
+        
+        setCaughtPokemon(fetchedData);
+      } catch (error) {
+        console.error("Error fetching from PokeAPI", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    fetchPokemon();
+  }, [ownedPokemon]);
+
+  if (loading) {
+    return (
+      <View style={[styles.pageContent, { alignItems: 'center', paddingTop: 40 }]}>
+        <Text style={styles.muted}>Loading Pokédex from PokeAPI...</Text>
+      </View>
+    );
+  }
+
   return (
     <FlatList
-      data={POKEMON_DATABASE}
+      data={caughtPokemon}
       keyExtractor={pokemon => pokemon.id}
       contentContainerStyle={styles.pageContent}
       renderItem={({ item }) => (
         <PokemonListCard pokemon={item}>
-          <Text style={ownedIds.has(item.id) ? styles.ownedText : styles.unownedText}>
-            {ownedIds.has(item.id) ? 'Owned' : 'Not caught'}
+          <Text style={styles.ownedText}>
+            Owned
           </Text>
         </PokemonListCard>
       )}

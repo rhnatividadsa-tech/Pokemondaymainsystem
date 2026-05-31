@@ -31,7 +31,7 @@ function mapFrontendPlayer(player: PlayerRow, wallet?: WalletRow | null): Fronte
     player_id: player.id,
     player_name: player.player_name,
     coin_balance: wallet?.coin_balance ?? 0,
-    starter_pokemon_id: toPokemonDataId(player.starter_pokemon_id) ?? null,
+    starter_pokemon_id: toPokemonDataId(player.pokedex_id) ?? null,
   };
 }
 
@@ -39,7 +39,7 @@ function mapFrontendPokedex(row: PlayerPokemonRow): FrontendPokedexRow {
   return {
     pokedex_id: row.id,
     player_id: row.player_id,
-    pokemon_id: toPokemonDataId(row.pokemon_id) ?? String(row.pokemon_id),
+    pokemon_id: toPokemonDataId(row.pokedex_id) ?? String(row.pokedex_id),
     level: row.level,
     source: row.source,
     status: row.status,
@@ -133,12 +133,61 @@ export async function getPlayerDashboardStats(playerId: string) {
   };
 }
 
+export async function ensurePokemonInDb(pokedexIdNum: number) {
+  const { data: existing, error: findError } = await supabase
+    .from('pokemon')
+    .select('pokedex_id')
+    .eq('pokedex_id', pokedexIdNum)
+    .maybeSingle();
+    
+  if (findError) throw findError;
+  if (existing) return;
+
+  const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokedexIdNum}`);
+  if (!response.ok) throw new Error(`Failed to fetch pokemon ${pokedexIdNum} from PokeAPI`);
+  const data = await response.json();
+  
+  const typeName = data.types[0].type.name;
+  const capitalizedType = typeName.charAt(0).toUpperCase() + typeName.slice(1);
+  const capitalizedName = data.name.charAt(0).toUpperCase() + data.name.slice(1);
+  
+  let region = 'Unknown';
+  if (pokedexIdNum <= 151) region = 'Kanto';
+  else if (pokedexIdNum <= 251) region = 'Johto';
+  else if (pokedexIdNum <= 386) region = 'Hoenn';
+  else if (pokedexIdNum <= 493) region = 'Sinnoh';
+  else if (pokedexIdNum <= 649) region = 'Unova';
+  else if (pokedexIdNum <= 721) region = 'Kalos';
+  else if (pokedexIdNum <= 809) region = 'Alola';
+  else if (pokedexIdNum <= 898) region = 'Galar';
+  else region = 'Paldea';
+
+  const { error: insertError } = await supabase
+    .from('pokemon')
+    .insert({
+      pokedex_id: pokedexIdNum,
+      pokemon_name: capitalizedName,
+      type: capitalizedType,
+      region: region,
+      image: data.sprites?.front_default ?? null,
+      evolution_stage: 1,
+      evolves_to: null,
+      required_stone: null,
+    });
+    
+  if (insertError) {
+    throw new Error(`Failed to insert pokemon ${pokedexIdNum} into DB: ${insertError.message}`);
+  }
+}
+
 export async function saveStarterPokemon(playerId: string, pokemonId: string | number): Promise<FrontendPokedexRow> {
-  const pokemonDbId = toPokemonDbId(pokemonId);
+  const pokedexIdNum = typeof pokemonId === 'number' ? pokemonId : parseInt(pokemonId, 10);
+
+  await ensurePokemonInDb(pokedexIdNum);
 
   const { error: updateError } = await supabase
     .from('players')
-    .update({ starter_pokemon_id: pokemonDbId })
+    .update({ pokedex_id: pokedexIdNum })
     .eq('id', playerId);
 
   if (updateError) {
@@ -149,7 +198,7 @@ export async function saveStarterPokemon(playerId: string, pokemonId: string | n
     .from('player_pokemon')
     .insert({
       player_id: playerId,
-      pokemon_id: pokemonDbId,
+      pokedex_id: pokedexIdNum,
       level: 5,
       source: 'Starter',
       status: 'Active',

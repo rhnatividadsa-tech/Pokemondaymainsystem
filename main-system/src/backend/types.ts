@@ -7,7 +7,7 @@ export interface PlayerRow {
   player_name: string;
   section: string | null;
   assigned_journey: string | null;
-  starter_pokemon_id: number | null;
+  pokedex_id: number | null;
   created_at: string;
 }
 
@@ -19,6 +19,7 @@ export interface WalletRow {
 
 export interface PokemonRow {
   id: number;
+  pokedex_id: number | null;
   pokemon_name: string;
   type: string;
   region: string;
@@ -31,7 +32,7 @@ export interface PokemonRow {
 export interface PlayerPokemonRow {
   id: string;
   player_id: string;
-  pokemon_id: number;
+  pokedex_id: number;
   level: number;
   source: PokemonSource;
   status: PokemonStatus;
@@ -174,7 +175,7 @@ export function mapPlayer(row: PlayerRow, coins = 0): Player {
     name: row.player_name,
     section: row.section ?? undefined,
     assignedJourney: row.assigned_journey ?? undefined,
-    starterPokemonId: toPokemonDataId(row.starter_pokemon_id),
+    starterPokemonId: toPokemonDataId(row.pokedex_id),
     coins,
     createdAt: row.created_at,
   };
@@ -184,7 +185,7 @@ export function mapOwnedPokemon(row: PlayerPokemonRow): OwnedPokemon {
   return {
     id: row.id,
     playerId: row.player_id,
-    pokemonDataId: toPokemonDataId(row.pokemon_id) ?? String(row.pokemon_id),
+    pokemonDataId: toPokemonDataId(row.pokedex_id) ?? String(row.pokedex_id),
     level: row.level,
     source: row.source,
     status: row.status,
