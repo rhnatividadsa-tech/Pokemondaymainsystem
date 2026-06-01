@@ -3,33 +3,35 @@ import { NameEntry } from './components/NameEntry';
 import { GameMenu } from './components/GameMenu';
 import { PokeReflex } from './components/PokeReflex';
 import { PokeGuess } from './components/PokeGuess';
+import { ThrowPokeball } from './components/ThrowPokeball';
 import { ResultScreen } from './components/ResultScreen';
 import { generateWildPokemon, type WildPokemon } from './lib/wildPokemon';
 import { sendResultToMainSystem, type CatchResult } from './lib/mainSystem';
 import { findPlayerByName, type PlayerRecord } from './lib/playerLookup';
+import { startBackgroundMusic } from './lib/soundEffects';
 
-type Screen = 'name' | 'menu' | 'reflex' | 'guess' | 'result';
+type Screen = 'name' | 'menu' | 'reflex' | 'guess' | 'throw' | 'result';
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('name');
   const [playerName, setPlayerName] = useState('');
   const [playerData, setPlayerData] = useState<PlayerRecord | null>(null);
   const [wild, setWild] = useState<WildPokemon | null>(null);
-  const [activeGame, setActiveGame] = useState<'PokeReflex' | 'PokeGuess' | null>(null);
+  const [activeGame, setActiveGame] = useState<'PokeReflex' | 'PokeGuess' | 'ThrowThatPokeball' | null>(null);
   const [lastResult, setLastResult] = useState<CatchResult | null>(null);
   const [isPreparingGame, setIsPreparingGame] = useState(false);
   const [prepareError, setPrepareError] = useState('');
   const [saveError, setSaveError] = useState('');
   const [isSavingResult, setIsSavingResult] = useState(false);
 
-  const handleSelectGame = async (game: 'reflex' | 'guess') => {
+  const handleSelectGame = async (game: 'reflex' | 'guess' | 'throw') => {
     if (isPreparingGame) return;
     setPrepareError('');
     setIsPreparingGame(true);
     try {
       const generatedWildPokemon = await generateWildPokemon();
       setWild(generatedWildPokemon);
-      setActiveGame(game === 'reflex' ? 'PokeReflex' : 'PokeGuess');
+      setActiveGame(game === 'reflex' ? 'PokeReflex' : game === 'guess' ? 'PokeGuess' : 'ThrowThatPokeball');
       setScreen(game);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to generate wild Pokémon right now.';
@@ -104,6 +106,7 @@ export default function App() {
       {screen === 'name' && (
         <NameEntry
           onConfirm={async (name) => {
+            startBackgroundMusic();
             const player = await findPlayerByName(name);
             setPlayerData(player);
             setPlayerName(player.player_name);
@@ -132,6 +135,15 @@ export default function App() {
       )}
       {screen === 'guess' && wild && (
         <PokeGuess
+          wild={wild}
+          playerName={playerName}
+          isSavingResult={isSavingResult}
+          onFinish={handleFinish}
+          onBack={() => setScreen('menu')}
+        />
+      )}
+      {screen === 'throw' && wild && (
+        <ThrowPokeball
           wild={wild}
           playerName={playerName}
           isSavingResult={isSavingResult}

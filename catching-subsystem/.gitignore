@@ -1,6 +1,4 @@
 node_modules/
 dist/
-
-src/backend/.env
 src/backend/server_out.log
 src/backend/server_err.log

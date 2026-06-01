@@ -3,7 +3,7 @@ import { PageFrame, PokeballCorner } from './PageFrame';
 import type { PlayerRecord } from '../lib/playerLookup';
 
 type GameMenuProps = {
-  onSelectGame: (game: 'reflex' | 'guess') => Promise<void> | void;
+  onSelectGame: (game: 'reflex' | 'guess' | 'throw') => Promise<void> | void;
   playerName: string;
   playerData: PlayerRecord | null;
   isPreparingGame: boolean;
@@ -36,7 +36,7 @@ export function GameMenu({ onSelectGame, playerName, playerData, isPreparingGame
         <span className="absolute top-4 right-4 w-2 h-2 rounded-full bg-blue-500" />
         <h2 className="text-center text-2xl font-bold mb-6 text-gray-700">Choose a Catching Mini Game</h2>
 
-        <div className="grid sm:grid-cols-2 gap-5">
+        <div className="grid sm:grid-cols-3 gap-5">
           <button
             onClick={() => onSelectGame('reflex')}
             disabled={isPreparingGame}
@@ -48,7 +48,7 @@ export function GameMenu({ onSelectGame, playerName, playerData, isPreparingGame
               Click the matching symbol fast to catch the wild Pokémon.
             </p>
             <div className="bg-yellow-100 border border-yellow-300 rounded-xl px-3 py-2 text-xs text-yellow-800">
-              <span className="font-bold">🏆 Reward</span> · +20 Coins on catch
+              <span className="font-bold">🏆 Reward</span> · +20 Coins
             </div>
           </button>
 
@@ -63,7 +63,24 @@ export function GameMenu({ onSelectGame, playerName, playerData, isPreparingGame
               Read the category and clue, then pick the right Pokémon.
             </p>
             <div className="bg-yellow-100 border border-yellow-300 rounded-xl px-3 py-2 text-xs text-yellow-800">
-              <span className="font-bold">🏆 Reward</span> · +20 Coins on catch
+              <span className="font-bold">🏆 Reward</span> · +20 Coins
+            </div>
+          </button>
+
+          <button
+            onClick={() => onSelectGame('throw')}
+            disabled={isPreparingGame}
+            className="bg-white rounded-2xl border-2 border-green-400 p-6 text-center shadow-md hover:shadow-xl hover:-translate-y-1 transition-all flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-14 h-14 mx-auto rounded-full bg-green-500 text-white flex items-center justify-center text-2xl mb-3">🎯</div>
+              <h3 className="text-lg font-bold mb-1">Throw that Pokeball!</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Play the physical game in real life. Facilitator logs the outcome.
+              </p>
+            </div>
+            <div className="bg-yellow-100 border border-yellow-300 rounded-xl px-3 py-2 text-xs text-yellow-800 mt-auto">
+              <span className="font-bold">🏆 Reward</span> · +20 Coins
             </div>
           </button>
         </div>

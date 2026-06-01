@@ -11,7 +11,9 @@ import {
   saveStarterPokemon,
   rewardBadgeToPlayer,
 } from '../backend/playerService';
+import { startBackgroundMusic } from './lib/soundEffects';
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   FlatList,
@@ -297,6 +299,7 @@ export default function App() {
 
   setError('');
   setIsStarting(true);
+  startBackgroundMusic();
 
   setTimeout(() => {
     findOrCreatePlayer(trimmed)
@@ -2303,6 +2306,7 @@ function PokeballTransition() {
   const scale = useRef(new Animated.Value(1)).current;
   const opacity = useRef(new Animated.Value(1)).current;
   const rotation = useRef(new Animated.Value(0)).current;
+  const loadingOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -2327,8 +2331,14 @@ function PokeballTransition() {
           useNativeDriver: true,
         }),
       ),
+      Animated.timing(loadingOpacity, {
+        toValue: 1,
+        duration: 300,
+        delay: 1000,
+        useNativeDriver: true,
+      }),
     ]).start();
-  }, [opacity, rotation, scale]);
+  }, [opacity, rotation, scale, loadingOpacity]);
 
   const rotate = rotation.interpolate({
     inputRange: [0, 1],
@@ -2336,10 +2346,19 @@ function PokeballTransition() {
   });
 
   return (
-    <Animated.Image
-      source={pokeballImg}
-      style={[styles.transitionBall, { opacity, transform: [{ scale }, { rotate }] }]}
-    />
+    <View style={StyleSheet.absoluteFill}>
+      <Animated.Image
+        source={pokeballImg}
+        style={[styles.transitionBall, { position: 'absolute', opacity, transform: [{ scale }, { rotate }] }]}
+      />
+      <Animated.View style={{ position: 'absolute', opacity: loadingOpacity, alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+        <Image source={pokemonLogo} style={{ width: 240, height: 90, resizeMode: 'contain', marginBottom: 24 }} />
+        <Text style={{ color: '#FFFFFF', fontSize: 22, fontWeight: '800', marginBottom: 24, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: {width: 0, height: 2}, textShadowRadius: 4 }}>
+          Preparing Adventure...
+        </Text>
+        <ActivityIndicator size="large" color="#FFCB05" />
+      </Animated.View>
+    </View>
   );
 }
 
